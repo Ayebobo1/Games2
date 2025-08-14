@@ -48,6 +48,10 @@
   .chip{ padding:8px 10px; background:#0f1d36; border:1px solid var(--line); border-radius:999px; cursor:pointer }
   .chip.used{ opacity:.5; pointer-events:none }
   .kbd{ background:#111; border:1px solid #333; padding:2px 6px; border-radius:6px; color:#fff }
+  .modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:50 }
+  .panel2{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; width:min(560px, 94%); box-shadow:0 20px 60px rgba(0,0,0,.35) }
+  .rowC{ display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap }
+  .mute{ margin-left:6px; }
 </style>
 </head>
 <body>
@@ -59,6 +63,7 @@
       <span id="xpBadge" class="badge ok" title="XP">⭐ <span id="xp">0</span></span>
       <span id="heartsBadge" class="badge warn" title="Hearts">❤ <span id="hearts">3</span></span>
       <div class="spacer"></div>
+      <label class="pill">🔊 Sound <input id="muteToggle" class="mute" type="checkbox" /></label>
       <button id="helpBtn" class="btn ghost">Controls</button>
     </div>
     <div class="tabs">
@@ -84,18 +89,31 @@
   <!-- Practice -->
   <section id="practice" class="panel hidden">
     <div class="flex">
-      <div class="pill">Mode: <select id="modeSel">
-        <option value="mc">Multiple Choice</option>
-        <option value="order">Word Bank (order)</option>
-      </select></div>
-      <div class="pill">Direction: <select id="directionSel">
-        <option value="en2esan">English → Esan</option>
-        <option value="esan2en">Esan → English</option>
-      </select></div>
+      <div class="pill">Category:
+        <select id="catPracticeSel">
+          <option value="all">All</option>
+          <option value="numbers">Numbers</option>
+          <option value="others">Others</option>
+        </select>
+      </div>
+      <div class="pill">Mode:
+        <select id="modeSel">
+          <option value="mc">Multiple Choice</option>
+          <option value="order">Word Bank (order)</option>
+        </select>
+      </div>
+      <div class="pill">Direction:
+        <select id="directionSel">
+          <option value="en2esan">English → Esan</option>
+          <option value="esan2en">Esan → English</option>
+        </select>
+      </div>
       <div class="spacer"></div>
       <button id="startPractice" class="btn primary">Start</button>
       <button id="skipBtn" class="btn">Skip</button>
     </div>
+
+    <div id="progressNote" class="muted" style="margin-top:8px"></div>
 
     <div id="challengeArea" class="card" style="margin-top:12px; display:none">
       <div id="prompt" class="big" style="margin-bottom:10px;"></div>
@@ -140,12 +158,25 @@
   <div class="big" style="margin-bottom:6px; font-weight:900">Controls</div>
   <div class="muted">
     • Navigate tabs at the top • <span class="kbd">Enter</span> on lookup •
-    Practice: click answers or build with chips • <span class="kbd">S</span> skip • <span class="kbd">H</span> help
+    Practice: choose category, click answers or build with chips • <span class="kbd">S</span> skip • <span class="kbd">H</span> help • Toggle sound with checkbox
+  </div>
+</div>
+
+<!-- Congrats Modal -->
+<div id="doneModal" class="modal hidden">
+  <div class="panel2 center">
+    <div class="big" style="font-weight:900">🎉 Congrats!</div>
+    <div class="muted" id="doneText" style="margin:8px 0 12px">You completed this category.</div>
+    <div class="rowC">
+      <button id="chooseAnother" class="btn">Choose Another Category</button>
+      <button id="repeatSession" class="btn ghost">Repeat This Category</button>
+      <button id="closeDone" class="btn primary">Close</button>
+    </div>
   </div>
 </div>
 
 <script>
-/* ---------- Tiny DOM helpers (single definition) ---------- */
+/* ---------- Tiny DOM helpers ---------- */
 const $  = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
@@ -164,7 +195,7 @@ const SEED_OTHERS = {
 };
 
 /* Storage Keys */
-const LS_KEYS = { numbers: "lingo_numbers", others: "lingo_others", meta: "lingo_meta" };
+const LS_KEYS = { numbers: "lingo_numbers", others: "lingo_others", meta: "lingo_meta", mute: "lingo_mute" };
 
 /* Load or seed */
 const loadJson = (k)=>{ try{ return JSON.parse(localStorage.getItem(k)||"null"); }catch{ return null; } };
@@ -175,7 +206,42 @@ let META = loadJson(LS_KEYS.meta) || { xp:0, hearts:3, streak:0 };
 saveJson(LS_KEYS.numbers, words_numbers);
 saveJson(LS_KEYS.others,  words_others);
 saveJson(LS_KEYS.meta,    META);
-const toastEl = $("#toast");
+
+/* =============================
+   Sounds (Web Audio, lightweight)
+   ============================= */
+let AC, muted = localStorage.getItem(LS_KEYS.mute) === "1";
+const muteToggle = $("#muteToggle");
+muteToggle.checked = muted;
+muteToggle.onchange = () => { muted = muteToggle.checked; localStorage.setItem(LS_KEYS.mute, muted ? "1" : "0"); };
+
+function ensureAC(){ if (!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); }
+function beep(freq=880, dur=0.12, type='sine', gain=0.2){
+  if (muted) return;
+  ensureAC();
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = 0; g.gain.setTargetAtTime(gain, AC.currentTime, 0.01);
+  o.connect(g).connect(AC.destination);
+  o.start();
+  g.gain.setTargetAtTime(0, AC.currentTime + dur*0.8, 0.03);
+  o.stop(AC.currentTime + dur);
+}
+function chord(freqs=[523,659,784], dur=0.35, type='sine', gain=0.15){
+  if (muted) return;
+  ensureAC();
+  const g = AC.createGain(); g.gain.value = 0; g.connect(AC.destination);
+  g.gain.setTargetAtTime(gain, AC.currentTime, 0.01);
+  const now = AC.currentTime;
+  freqs.forEach(f=>{
+    const o = AC.createOscillator(); o.type = type; o.frequency.value = f;
+    o.connect(g); o.start(now); o.stop(now + dur);
+  });
+  g.gain.setTargetAtTime(0, now + dur*0.8, 0.04);
+}
+function sfxCorrect(){ beep(880, .09, 'triangle', .18); setTimeout(()=>beep(1175, .09, 'triangle', .16), 110); }
+function sfxWrong(){ beep(220, .15, 'sawtooth', .18); setTimeout(()=>beep(180, .12, 'sawtooth', .16), 120); }
+function sfxComplete(){ chord([523,659,784], .35, 'sine', .18); setTimeout(()=>chord([659,784,988], .35, 'sine', .16), 380); }
 
 /* =============================
    1) UI: Tabs and badges
@@ -193,15 +259,14 @@ tabs.forEach(t=>{
 function updateBadges(){ $("#xp").textContent = META.xp; $("#hearts").textContent = META.hearts; $("#streak").textContent = META.streak; }
 updateBadges();
 
-/* Controls button + keyboard help */
+/* Controls & keyboard */
+const toastEl = $("#toast");
 $("#helpBtn").onclick = ()=>toggleHelp();
 document.addEventListener("keydown", (e)=>{
   const k = e.key.toLowerCase();
   if (k === "h") toggleHelp();
   if (k === "s") skipChallenge();
 });
-
-/* ensure help really hides when “hidden” is applied */
 function toggleHelp(){
   const el = $("#helpModal");
   el.classList.toggle("hidden");
@@ -242,7 +307,6 @@ function doLookup(){
   }
   out.style.display = "block";
 }
-
 function lookupBothWays(q){
   const qLC = q.toLowerCase();
   const res = [];
@@ -264,56 +328,94 @@ function lookupBothWays(q){
 }
 
 /* =============================
-   3) Practice (Duolingo-style)
+   3) Practice (Duolingo-style) with sessions & no repeats
    ============================= */
-let CURRENT = null; // {type, prompt, options, answer, tokens}
-$("#startPractice").onclick = ()=>startChallenge();
+const state = {
+  session: null // { cat, dir, mode, remainingKeys:[...] }
+};
+
+$("#startPractice").onclick = ()=>startSession();
 $("#skipBtn").onclick = ()=>skipChallenge();
 $("#clearOrder").onclick = ()=>clearOrder();
 $("#submitOrder").onclick = ()=>submitOrder();
 
-function startChallenge(){
-  if (META.hearts <= 0){ toast("No hearts left. Add more in Dictionary tab."); return; }
-  const mode = $("#modeSel").value; // mc | order
-  const dir  = $("#directionSel").value; // en2esan | esan2en
-  CURRENT = makeChallenge(mode, dir);
-  renderChallenge(CURRENT);
+function startSession(){
+  const cat = $("#catPracticeSel").value;        // all|numbers|others
+  const mode = $("#modeSel").value;              // mc|order
+  const dir  = $("#directionSel").value;         // en2esan|esan2en
+
+  const pool = entriesForCategory(cat);          // [ [esanKey, [meanings...]], ... ]
+  if (pool.length === 0){ toast("No words in this category."); return; }
+
+  state.session = {
+    cat, mode, dir,
+    remainingKeys: shuffle(pool.map(([k])=>k)) // only keys tracked; remove on correct
+  };
   $("#challengeArea").style.display = "block";
+  nextChallenge();
 }
 
-function skipChallenge(){
-  if (!CURRENT) return;
-  META.streak = 0; saveJson(LS_KEYS.meta, META); updateBadges();
-  startChallenge();
+function entriesForCategory(cat){
+  const all = [];
+  if (cat === "all" || cat === "numbers"){ for (const [k,v] of Object.entries(words_numbers)) all.push([k,v]); }
+  if (cat === "all" || cat === "others"){  for (const [k,v] of Object.entries(words_others))  all.push([k,v]); }
+  return all;
 }
 
-function makeChallenge(type, direction){
-  const pool = Object.entries(mergeDicts());
-  if (pool.length === 0) return null;
-  const [key, meanings] = pool[Math.floor(Math.random()*pool.length)];
+function nextChallenge(){
+  const s = state.session;
+  if (!s) return;
+  updateProgressNote();
+  if (s.remainingKeys.length === 0){
+    // Done!
+    sfxComplete();
+    $("#doneText").textContent = `You've completed all words in "${s.cat}"!`;
+    $("#doneModal").classList.remove("hidden");
+    return;
+  }
+  // pick current key from remaining (don’t remove yet; remove only on correct)
+  const curKey = s.remainingKeys[0];
+  const dict = {...words_numbers, ...words_others};
+  const meanings = dict[curKey];
+
+  // make challenge per current session settings
+  CURRENT = makeChallengeFrom(curKey, meanings, s.mode, s.dir, s.cat);
+  renderChallenge(CURRENT);
+}
+
+function updateProgressNote(){
+  const s = state.session; if (!s){ $("#progressNote").textContent = ""; return; }
+  const total = entriesForCategory(s.cat).length;
+  const left = s.remainingKeys.length;
+  $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total}`;
+}
+
+function makeChallengeFrom(key, meanings, type, direction, catLabel){
+  const pool = entriesForCategory(catLabel);
   const meaning = meanings[Math.floor(Math.random()*meanings.length)];
   if (type === "mc"){
     if (direction === "en2esan"){
       const distractors = pickDistractors(pool.map(([k])=>k), key, 3);
       const options = shuffle([key, ...distractors]);
-      return { type:"mc", prompt:`Translate: "${meaning}"`, options, answer:key };
+      return { type:"mc", prompt:`Translate: "${meaning}"`, options, answer:key, key };
     } else {
-      const distractors = pickDistractors(pool.flatMap(([k,vals])=>vals), meaning, 3);
+      const allMeanings = pool.flatMap(([k,vals])=>vals);
+      const distractors = pickDistractors(allMeanings, meaning, 3);
       const options = shuffle([meaning, ...distractors]);
-      return { type:"mc", prompt:`Translate: "${key}"`, options, answer:meaning };
+      return { type:"mc", prompt:`Translate: "${key}"`, options, answer:meaning, key };
     }
   } else {
     const tokens = (direction === "en2esan" ? key : meaning).split(/\s+/).filter(Boolean);
     const bank = shuffle([...tokens, ...pickTokenNoise(2)]);
-    return { type:"order", prompt:`Build: "${direction==='en2esan'?meaning:key}"`, tokens, bank };
+    return { type:"order", prompt:`Build: "${direction==='en2esan'?meaning:key}"`, tokens, bank, key };
   }
 }
 
 function renderChallenge(ch){
-  if (!ch){ $("#challengeArea").style.display="none"; return; }
   $("#prompt").textContent = ch.prompt;
   $("#mcWrap").classList.add("hidden");
   $("#orderWrap").classList.add("hidden");
+
   if (ch.type === "mc"){
     const wrap = $("#mcWrap");
     wrap.innerHTML = "";
@@ -321,7 +423,7 @@ function renderChallenge(ch){
       const btn = document.createElement("button");
       btn.className = "answerChoice";
       btn.textContent = opt;
-      btn.onclick = ()=>gradeMC(btn, opt===ch.answer);
+      btn.onclick = ()=>gradeMC(btn, opt===ch.answer, ch.key);
       wrap.appendChild(btn);
     });
     wrap.classList.remove("hidden");
@@ -346,22 +448,24 @@ function renderChallenge(ch){
   }
 }
 
-function gradeMC(btn, correct){
+function gradeMC(btn, correct, keyForRemoval){
   for (const b of $$("#mcWrap .answerChoice")) b.disabled = true;
   if (correct){
     btn.classList.add("correct");
     META.xp += 10; META.streak += 1;
     if (META.streak % 5 === 0) META.hearts = Math.min(5, META.hearts + 1);
     saveJson(LS_KEYS.meta, META); updateBadges();
-    toast("Correct! +10 XP");
-    setTimeout(startChallenge, 600);
+    sfxCorrect(); toast("Correct! +10 XP");
+    // remove this key from remaining so it won't repeat
+    removeKeyFromSession(keyForRemoval);
+    setTimeout(nextChallenge, 500);
   } else {
     btn.classList.add("wrong");
     META.hearts = Math.max(0, META.hearts - 1);
     META.streak = 0;
     saveJson(LS_KEYS.meta, META); updateBadges();
-    toast("Not quite. -1 ❤");
-    setTimeout(startChallenge, 600);
+    sfxWrong(); toast("Not quite. -1 ❤");
+    setTimeout(nextChallenge, 600);
   }
 }
 
@@ -375,19 +479,32 @@ function submitOrder(){
   if (given.join(" ") === correct){
     META.xp += 12; META.streak += 1;
     saveJson(LS_KEYS.meta, META); updateBadges();
-    toast("¡Perfecto! +12 XP");
-    setTimeout(startChallenge, 600);
+    sfxCorrect(); toast("¡Perfecto! +12 XP");
+    removeKeyFromSession(CURRENT.key);
+    setTimeout(nextChallenge, 500);
   } else {
     META.hearts = Math.max(0, META.hearts - 1);
     META.streak = 0;
     saveJson(LS_KEYS.meta, META); updateBadges();
-    toast(`Answer: ${correct}`);
-    setTimeout(startChallenge, 900);
+    sfxWrong(); toast(`Answer: ${correct}`);
+    setTimeout(nextChallenge, 900);
   }
 }
 
-/* Helpers for practice */
-function mergeDicts(){ return {...words_numbers, ...words_others}; }
+function removeKeyFromSession(key){
+  const s = state.session; if (!s) return;
+  s.remainingKeys = s.remainingKeys.filter(k => k !== key);
+  updateProgressNote();
+}
+
+function skipChallenge(){
+  if (!state.session) return;
+  META.streak = 0; saveJson(LS_KEYS.meta, META); updateBadges();
+  toast("Skipped");
+  setTimeout(nextChallenge, 120);
+}
+
+/* Helpers */
 function pickDistractors(list, correct, n){
   const pool = list.filter(x=>x!==correct); const picks = [];
   while (picks.length<n && pool.length){ picks.push(...pool.splice(Math.floor(Math.random()*pool.length),1)); }
@@ -412,7 +529,7 @@ function renderDictionary(){
   const list = $("#dictList"); list.innerHTML = "";
   const data = [];
   if (filter === "all" || filter === "numbers"){ for (const [k,v] of Object.entries(words_numbers)) data.push({cat:"numbers", k, v}); }
-  if (filter === "all" || filter === "others"){ for (const [k,v] of Object.entries(words_others))  data.push({cat:"others", k, v}); }
+  if (filter === "all" || filter === "others"){  for (const [k,v] of Object.entries(words_others))  data.push({cat:"others", k, v}); }
   if (!data.length){ list.innerHTML = `<div class="card center muted">No entries yet.</div>`; return; }
   data.sort((a,b)=>a.k.localeCompare(b.k));
   data.forEach(({cat,k,v})=>{
@@ -478,7 +595,6 @@ function openAddModal(opts={}){
     persistDicts(); modal.remove(); renderDictionary(); toast("Saved");
   };
 }
-
 function exportJson(){
   const blob = new Blob([JSON.stringify({numbers:words_numbers, others:words_others}, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
@@ -486,7 +602,6 @@ function exportJson(){
   a.download = "lingo-dictionary.json";
   a.click();
 }
-
 function importJson(e){
   const f = e.target.files[0]; if (!f) return;
   const reader = new FileReader();
@@ -504,7 +619,7 @@ function importJson(e){
 }
 
 /* =============================
-   5) Utilities
+   5) Utilities & Done flow
    ============================= */
 function switchTo(id){
   tabs.forEach(x => x.classList.toggle("active", x.dataset.tab===id));
@@ -513,6 +628,22 @@ function switchTo(id){
 function persistDicts(){ saveJson(LS_KEYS.numbers, words_numbers); saveJson(LS_KEYS.others, words_others); }
 function toast(msg){ toastEl.textContent = msg; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t = setTimeout(()=>toastEl.classList.add("hidden"), 1400); }
 function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+/* Done modal actions */
+$("#chooseAnother").onclick = ()=>{
+  $("#doneModal").classList.add("hidden");
+  switchTo("practice");
+  // user can change category in dropdown, then press Start
+};
+$("#repeatSession").onclick = ()=>{
+  if (!state.session){ $("#doneModal").classList.add("hidden"); return; }
+  // reset remaining keys from current category
+  const s = state.session;
+  s.remainingKeys = shuffle(entriesForCategory(s.cat).map(([k])=>k));
+  $("#doneModal").classList.add("hidden");
+  nextChallenge();
+};
+$("#closeDone").onclick = ()=>{ $("#doneModal").classList.add("hidden"); };
 
 /* Initial renders */
 renderDictionary();
