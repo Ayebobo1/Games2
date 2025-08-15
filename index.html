@@ -38,6 +38,8 @@
   .flex{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
   .spacer{ flex:1 }
   .hidden{ display:none !important }
+  /* 🔒 Click-through guard: when hidden, overlays cannot intercept clicks */
+  .toast.hidden, .modal.hidden{ pointer-events:none !important; }
   .center{ text-align:center }
   .big{ font-size:18px }
   @media (max-width:600px){ .title{font-size:20px} }
@@ -65,12 +67,12 @@
       <span id="heartsBadge" class="badge warn" title="Hearts">❤ <span id="hearts">5</span></span>
       <div class="spacer"></div>
       <label class="pill">🔊 Sound <input id="muteToggle" class="mute" type="checkbox" /></label>
-      <button id="helpBtn" class="btn ghost">Controls</button>
+      <button id="helpBtn" class="btn ghost" type="button">Controls</button>
     </div>
     <div class="tabs">
-      <button class="tab active" data-tab="learn">Learn</button>
-      <button class="tab" data-tab="practice">Practice</button>
-      <button class="tab" data-tab="dictionary">Dictionary</button>
+      <button class="tab active" data-tab="learn" type="button">Learn</button>
+      <button class="tab" data-tab="practice" type="button">Practice</button>
+      <button class="tab" data-tab="dictionary" type="button">Dictionary</button>
     </div>
   </div>
 
@@ -80,10 +82,9 @@
       <div class="row">
         <input id="lookupInput" type="text" placeholder="Type a word (English or Esan) and press Enter…" />
       </div>
-      <button id="lookupBtn" class="btn primary">Look up</button>
-      <button id="viewBtn" class="btn">View all</button>
+      <button id="lookupBtn" class="btn primary" type="button">Look up</button>
+      <button id="viewBtn" class="btn" type="button">View all</button>
     </div>
-
     <div id="lookupResult" class="card" style="margin-top:12px; display:none"></div>
   </section>
 
@@ -110,8 +111,8 @@
         </select>
       </div>
       <div class="spacer"></div>
-      <button id="startPractice" class="btn primary">Start</button>
-      <button id="skipBtn" class="btn">Skip</button>
+      <button id="startPractice" class="btn primary" type="button">Start</button>
+      <button id="skipBtn" class="btn" type="button">Skip</button>
     </div>
 
     <div id="progressNote" class="muted" style="margin-top:8px"></div>
@@ -123,8 +124,8 @@
         <div class="bank" id="bank"></div>
         <div style="margin-top:8px" class="bank" id="answerBank"></div>
         <div class="flex" style="margin-top:8px">
-          <button id="clearOrder" class="btn">Clear</button>
-          <button id="submitOrder" class="btn primary">Submit</button>
+          <button id="clearOrder" class="btn" type="button">Clear</button>
+          <button id="submitOrder" class="btn primary" type="button">Submit</button>
         </div>
       </div>
     </div>
@@ -141,10 +142,10 @@
         </select>
       </div>
       <div class="spacer"></div>
-      <button id="exportBtn" class="btn">Export JSON</button>
+      <button id="exportBtn" class="btn" type="button">Export JSON</button>
       <label class="btn ghost" for="importFile">Import JSON</label>
       <input id="importFile" type="file" accept=".json" style="display:none" />
-      <button id="addBtn" class="btn primary">Add Word</button>
+      <button id="addBtn" class="btn primary" type="button">Add Word</button>
     </div>
 
     <!-- Earn hearts by review -->
@@ -170,42 +171,45 @@
 </div>
 
 <!-- Out of Hearts Modal -->
-<div id="outModal" class="modal hidden">
+<div id="outModal" class="modal hidden" aria-hidden="true">
   <div class="panel2 center">
     <div class="big" style="font-weight:900">Out of hearts</div>
     <div class="muted" style="margin:8px 0 12px">Review missed words in the Dictionary to earn hearts and continue.</div>
     <div class="rowC">
-      <button id="goReview" class="btn primary">Go to Dictionary</button>
-      <button id="dismissOut" class="btn">Close</button>
+      <button id="goReview" class="btn primary" type="button">Go to Dictionary</button>
+      <button id="dismissOut" class="btn" type="button">Close</button>
     </div>
   </div>
 </div>
 
 <!-- Congrats Modal -->
-<div id="doneModal" class="modal hidden">
+<div id="doneModal" class="modal hidden" aria-hidden="true">
   <div class="panel2 center">
     <div class="big" style="font-weight:900">🎉 Congrats!</div>
     <div class="muted" id="doneText" style="margin:8px 0 12px">You completed this category.</div>
     <div class="rowC">
-      <button id="chooseAnother" class="btn">Choose Another Category</button>
-      <button id="repeatSession" class="btn ghost">Repeat This Category</button>
-      <button id="closeDone" class="btn primary">Close</button>
+      <button id="chooseAnother" class="btn" type="button">Choose Another Category</button>
+      <button id="repeatSession" class="btn ghost" type="button">Repeat This Category</button>
+      <button id="closeDone" class="btn primary" type="button">Close</button>
     </div>
   </div>
 </div>
 
 <!-- Review Modal -->
-<div id="reviewModal" class="modal hidden">
+<div id="reviewModal" class="modal hidden" aria-hidden="true">
   <div class="panel2">
     <div class="big" id="reviewPrompt" style="margin-bottom:10px;font-weight:800">Review</div>
     <div id="reviewChoices" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
     <div class="rowC" style="margin-top:10px">
-      <button id="closeReview" class="btn">Close</button>
+      <button id="closeReview" class="btn" type="button">Close</button>
     </div>
   </div>
 </div>
 
 <script>
+/* Run only after the DOM is fully ready to avoid missed bindings */
+window.addEventListener('DOMContentLoaded', () => {
+
 /* ---------- Tiny DOM helpers ---------- */
 const $  = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -233,7 +237,7 @@ const saveJson = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 let words_numbers = loadJson(LS_KEYS.numbers) || SEED_NUMBERS;
 let words_others  = loadJson(LS_KEYS.others)  || SEED_OTHERS;
 let META = loadJson(LS_KEYS.meta) || { xp:0, hearts:5, streak:0 };
-let MISSED = new Set(loadJson(LS_KEYS.missed) || []); // track Esan keys that were missed
+let MISSED = new Set(loadJson(LS_KEYS.missed) || []);
 saveJson(LS_KEYS.numbers, words_numbers);
 saveJson(LS_KEYS.others,  words_others);
 saveJson(LS_KEYS.meta,    META);
@@ -332,7 +336,7 @@ function doLookup(){
       <div class="card">
         <div class="big">"${escapeHtml(q)}" not found.</div>
         <div class="flex" style="margin-top:8px">
-          <button class="btn primary" id="addFromLookup">Add this word</button>
+          <button class="btn primary" id="addFromLookup" type="button">Add this word</button>
         </div>
       </div>`;
     $("#addFromLookup").onclick = ()=>openAddModal({ presetKey:q, presetMeanings:"" });
@@ -452,6 +456,7 @@ function renderChallenge(ch){
     ch.options.forEach(opt=>{
       const btn = document.createElement("button");
       btn.className = "answerChoice";
+      btn.type = "button";
       btn.textContent = opt;
       btn.onclick = ()=>gradeMC(btn, opt===ch.answer, ch.key);
       wrap.appendChild(btn);
@@ -463,6 +468,7 @@ function renderChallenge(ch){
     ch.bank.forEach(tok=>{
       const chip = document.createElement("button");
       chip.className = "chip";
+      chip.type = "button";
       chip.textContent = tok;
       chip.onclick = ()=>{
         chip.classList.add("used");
@@ -558,7 +564,6 @@ $("#importFile").onchange = importJson;
 $("#closeReview").onclick = ()=>$("#reviewModal").classList.add("hidden");
 
 function renderDictionary(){
-  // Review card
   renderReviewCard();
 
   const filter = $("#catFilter").value;
@@ -576,8 +581,8 @@ function renderDictionary(){
         <div class="big" style="font-weight:800">${escapeHtml(k)}</div>
         <span class="pill">${cat}</span>
         <div class="spacer"></div>
-        <button class="btn ghost editBtn">Edit</button>
-        <button class="btn ghost delBtn">Delete</button>
+        <button class="btn ghost editBtn" type="button">Edit</button>
+        <button class="btn ghost delBtn" type="button">Delete</button>
       </div>
       <div class="muted" style="margin-top:4px">${v.map(x=>escapeHtml(x)).join(", ")}</div>
     `;
@@ -595,7 +600,7 @@ function renderReviewCard(){
   const listEl = $("#reviewList");
   const card = $("#reviewCard");
   const allDict = {...words_numbers, ...words_others};
-  const missedArr = Array.from(MISSED).filter(k => allDict[k]); // only keep existing keys
+  const missedArr = Array.from(MISSED).filter(k => allDict[k]);
   if (!missedArr.length){ card.style.display = "none"; return; }
   card.style.display = "block";
   listEl.innerHTML = "";
@@ -605,8 +610,8 @@ function renderReviewCard(){
     row.innerHTML = `
       <div><b>${escapeHtml(k)}</b> <span class="muted">= ${allDict[k].map(m=>escapeHtml(m)).join(", ")}</span></div>
       <div class="rowC">
-        <button class="btn primary">Practice</button>
-        <button class="btn ghost">Remove</button>
+        <button class="btn primary" type="button">Practice</button>
+        <button class="btn ghost" type="button">Remove</button>
       </div>
     `;
     const [practiceBtn, removeBtn] = row.querySelectorAll("button");
@@ -621,7 +626,6 @@ function renderReviewCard(){
 }
 
 function openReview(key, meanings){
-  // Build a short MC for this single word (direction chosen for good learning: Esan -> English)
   $("#reviewPrompt").textContent = `Review: Translate "${key}"`;
   const allMeanings = Object.values({...words_numbers, ...words_others}).flat();
   const target = meanings[Math.floor(Math.random()*meanings.length)];
@@ -632,6 +636,7 @@ function openReview(key, meanings){
   options.forEach(opt=>{
     const b = document.createElement("button");
     b.className = "answerChoice";
+    b.type = "button";
     b.textContent = opt;
     b.onclick = ()=>{
       if (opt === target){
@@ -639,4 +644,110 @@ function openReview(key, meanings){
         saveJson(LS_KEYS.meta, META); updateBadges();
         MISSED.delete(key);
         saveJson(LS_KEYS.missed, Array.from(MISSED));
-        sfxC
+        sfxCorrect(); toast("+1 ❤ from review!");
+        $("#reviewModal").classList.add("hidden");
+        renderReviewCard();
+      } else {
+        sfxWrong(); toast("Try again");
+      }
+    };
+    wrap.appendChild(b);
+  });
+  $("#reviewModal").classList.remove("hidden");
+}
+
+function openAddModal(opts={}){
+  const {cat="others", presetKey="", presetMeanings=""} = opts;
+  const modal = document.createElement("div");
+  modal.className = "toast";
+  modal.style.maxWidth = "720px"; modal.style.width = "calc(100% - 32px)";
+  modal.innerHTML = `
+    <div class="big" style="font-weight:900; margin-bottom:8px">Add / Edit Word</div>
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
+      <label>Category
+        <select id="mCat">
+          <option value="numbers">Numbers</option>
+          <option value="others">Others</option>
+        </select>
+      </label>
+      <label>Word (Esan key)
+        <input id="mKey" type="text" placeholder="e.g., Uwa" />
+      </label>
+      <label style="grid-column:1 / -1">Meanings (English, comma separated)
+        <input id="mVals" type="text" placeholder="e.g., House, Building, Home" />
+      </label>
+    </div>
+    <div class="flex" style="margin-top:8px">
+      <button id="mSave" class="btn primary" type="button">Save</button>
+      <button id="mCancel" class="btn" type="button">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  $("#mCat", modal).value = cat;
+  $("#mKey", modal).value = presetKey;
+  $("#mVals", modal).value = presetMeanings;
+  $("#mCancel", modal).onclick = ()=>modal.remove();
+  $("#mSave", modal).onclick = ()=>{
+    const c = $("#mCat", modal).value;
+    const k = $("#mKey", modal).value.trim();
+    const vals = $("#mVals", modal).value.split(",").map(s=>s.trim()).filter(Boolean);
+    if (!k || !vals.length){ alert("Please enter a word and at least one meaning."); return; }
+    if (c==="numbers") words_numbers[k] = vals; else words_others[k] = vals;
+    persistDicts(); modal.remove(); renderDictionary(); toast("Saved");
+  };
+}
+function exportJson(){
+  const blob = new Blob([JSON.stringify({numbers:words_numbers, others:words_others}, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "lingo-dictionary.json";
+  a.click();
+}
+function importJson(e){
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      if (obj.numbers && obj.others){
+        words_numbers = obj.numbers;
+        words_others  = obj.others;
+        persistDicts(); renderDictionary(); toast("Imported");
+      } else { alert("Invalid JSON structure."); }
+    } catch(err){ alert("Failed to parse JSON."); }
+  };
+  reader.readAsText(f);
+}
+
+/* =============================
+   5) Utilities & Done flow
+   ============================= */
+function switchTo(id){
+  tabs.forEach(x => x.classList.toggle("active", x.dataset.tab===id));
+  ["learn","practice","dictionary"].forEach(sec => $("#"+sec).classList.toggle("hidden", sec!==id));
+}
+function persistDicts(){ saveJson(LS_KEYS.numbers, words_numbers); saveJson(LS_KEYS.others, words_others); }
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t = setTimeout(()=>toastEl.classList.add("hidden"), 1400); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+/* Done modal actions */
+$("#chooseAnother").onclick = ()=>{
+  $("#doneModal").classList.add("hidden");
+  switchTo("practice");
+};
+$("#repeatSession").onclick = ()=>{
+  if (!state.session){ $("#doneModal").classList.add("hidden"); return; }
+  const s = state.session;
+  s.remainingKeys = shuffle(entriesForCategory(s.cat).map(([k])=>k));
+  $("#doneModal").classList.add("hidden");
+  nextChallenge();
+};
+$("#closeDone").onclick = ()=>{ $("#doneModal").classList.add("hidden"); };
+
+/* Initial renders */
+renderDictionary();
+
+}); // DOMContentLoaded
+</script>
+</body>
+</html>
