@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Lingo Dictionary — Duolingo-style (No-repeat distractors)</title>
+<title>Lingo Dictionary — Duolingo-style (Fixed Start + No-repeat)</title>
 <style>
   :root{
     --bg:#0b1220; --panel:#0f172a; --ink:#e2e8f0; --muted:#94a3b8;
@@ -22,7 +22,7 @@
   .panel{ border:1px solid var(--line); border-top:none; background:var(--panel); padding:16px; border-radius:0 12px 12px 12px;}
   .row{ display:flex; gap:10px; flex-wrap:wrap }
   input[type="text"], select{ background:var(--card); border:1px solid var(--line); color:var(--ink); border-radius:10px; padding:10px 12px; outline:none; width:100%;}
-  .btn{ padding:10px 14px; border:none; border-radius:10px; background:#1e293b; color:#0f172a; color:var(--ink); cursor:pointer }
+  .btn{ padding:10px 14px; border:none; border-radius:10px; background:#1e293b; color:var(--ink); cursor:pointer }
   .btn.primary{ background:linear-gradient(90deg,var(--accent2),var(--accent1)); color:#0b1020; font-weight:800 }
   .btn.ghost{ background:transparent; border:1px solid var(--line) }
   .pill{ padding:6px 10px; border:1px solid var(--line); background:var(--card); border-radius:999px; font-size:13px }
@@ -206,6 +206,7 @@
 </div>
 
 <script>
+'use strict';
 /* Wait for DOM */
 window.addEventListener('DOMContentLoaded', () => {
 /* ---------- Helpers ---------- */
@@ -224,7 +225,7 @@ const save = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
 function toast(m){ toastEl.textContent=m; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t=setTimeout(()=>toastEl.classList.add("hidden"),1400); }
 function shuffle(a){ const x=a.slice(); for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]} return x; }
 function pickDistractors(list, correct, n){ const pool=list.filter(x=>x!==correct), out=[]; while(out.length<n&&pool.length){ out.push(...pool.splice(Math.random()*pool.length|0,1)); } return out.slice(0,n); }
-function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
 
 /* ---------- Sounds ---------- */
 let AC, muted = localStorage.getItem(LS.mute)==="1";
@@ -356,7 +357,9 @@ function lookupAny(q){
 }
 
 /* ---------- Practice (sessions, NO-REPEAT DISTRACTORS, hearts) ---------- */
-const state = { session:null }; // { cat, dir, mode, remaining:[{cat,key}] }
+const state = { session:null };
+let CURRENT = null;
+
 $("#startPractice").onclick = ()=>startSession();
 $("#skipBtn").onclick = ()=>skipChallenge();
 $("#clearOrder").onclick = ()=>{ $("#answerBank").innerHTML=""; $$("#bank .chip").forEach(c=>c.classList.remove("used")); };
@@ -385,7 +388,7 @@ function entriesFor(cat){
   return arr;
 }
 
-/* ✅ NEW: use only remaining session entries for future distractors */
+/* Use only remaining entries for distractors so solved words never reappear */
 function remainingEntriesFor(catLabel){
   if (state.session){
     const wantAll = state.session.cat === "all";
@@ -396,9 +399,8 @@ function remainingEntriesFor(catLabel){
   return entriesFor(catLabel);
 }
 
-/* 🔁 UPDATED: build MC from remaining-only pool so solved words never reappear as options */
 function makeChallengeFrom(cur, meanings, type, direction, catLabel){
-  const pool = remainingEntriesFor(catLabel);  // only remaining
+  const pool = remainingEntriesFor(catLabel);
   const meaning = meanings[Math.random()*meanings.length|0];
 
   if(type==="mc"){
@@ -411,7 +413,6 @@ function makeChallengeFrom(cur, meanings, type, direction, catLabel){
       return { type:"mc", prompt:`Translate: "${cur.key}"`, options:shuffle([meaning,...distractors]), answer:meaning, cur };
     }
   }else{
-    // Word-bank: pieces are only from the current item (plus small neutral noise)
     const tokens = (direction==="en2key"?cur.key:meaning).split(/\s+/).filter(Boolean);
     const noise = ["y","de","la","el","un","una","muy","por","para","con"];
     const bank = shuffle([...tokens, ...shuffle(noise).slice(0, Math.min(2, noise.length))]);
@@ -445,6 +446,7 @@ function gradeMC(btn, correct, cur){
   if(correct){ onCorrect(cur); } else { onWrong(cur); }
 }
 function submitOrder(){
+  if (!CURRENT) return;
   const given=Array.from($("#answerBank").children).map(x=>x.dataset.tok).join(" ");
   const correct=CURRENT.tokens.join(" ");
   if(given===correct){ onCorrect(CURRENT.cur,true); } else { onWrong(CURRENT.cur,true, correct); }
@@ -465,6 +467,27 @@ function onWrong(cur, order=false, corr=null){
   setTimeout(()=>{ if(META.hearts<=0 && !UNLIMITED) $("#outModal").classList.remove("hidden"); nextChallenge(); }, order?900:600);
 }
 function skipChallenge(){ if(!state.session) return; META.streak=0; save(LS.meta,META); updateBadges(); toast("Skipped"); setTimeout(nextChallenge,120); }
+
+function nextChallenge(){
+  const s=state.session; if(!s) return;
+  updateProgressNote();
+  if(!s.remaining.length){
+    sfxComplete();
+    $("#doneText").textContent = `You've completed all words in "${s.cat}"!`;
+    $("#doneModal").classList.remove("hidden");
+    return;
+  }
+  const cur=s.remaining[0];
+  const meanings = WORDS[cur.cat][cur.key];
+  CURRENT = makeChallengeFrom(cur, meanings, s.mode, s.dir, s.cat);
+  renderChallenge(CURRENT);
+}
+function updateProgressNote(){
+  const s=state.session; if(!s){ $("#progressNote").textContent=""; return; }
+  const total = entriesFor(s.cat).length;
+  const left = s.remaining.length;
+  $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total} • Hearts: ${META.hearts}${UNLIMITED?" (Unlimited)":""}`;
+}
 
 /* ---------- Dictionary (view/add/edit/delete) + Review for hearts ---------- */
 $("#catFilter").onchange = renderDictionary;
@@ -594,10 +617,11 @@ function switchTo(id){
 }
 
 /* ---------- Initial UI ---------- */
-function renderDictionary(){ /* intentionally declared above; first call here */ }
-renderDictionary = renderDictionary; // keep reference for tabs
-function updateUI(){ updateBadges(); renderDictionary(); }
-updateUI();
+function init(){
+  updateBadges();
+  renderDictionary();
+}
+init();
 
 }); // DOMContentLoaded
 </script>
