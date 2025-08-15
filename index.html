@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Lingo Dictionary — Duolingo-style (Multi-category + Heart Override)</title>
+<title>Lingo Dictionary — Duolingo-style (No-repeat distractors)</title>
 <style>
   :root{
     --bg:#0b1220; --panel:#0f172a; --ink:#e2e8f0; --muted:#94a3b8;
@@ -22,7 +22,7 @@
   .panel{ border:1px solid var(--line); border-top:none; background:var(--panel); padding:16px; border-radius:0 12px 12px 12px;}
   .row{ display:flex; gap:10px; flex-wrap:wrap }
   input[type="text"], select{ background:var(--card); border:1px solid var(--line); color:var(--ink); border-radius:10px; padding:10px 12px; outline:none; width:100%;}
-  .btn{ padding:10px 14px; border:none; border-radius:10px; background:#1e293b; color:var(--ink); cursor:pointer }
+  .btn{ padding:10px 14px; border:none; border-radius:10px; background:#1e293b; color:#0f172a; color:var(--ink); cursor:pointer }
   .btn.primary{ background:linear-gradient(90deg,var(--accent2),var(--accent1)); color:#0b1020; font-weight:800 }
   .btn.ghost{ background:transparent; border:1px solid var(--line) }
   .pill{ padding:6px 10px; border:1px solid var(--line); background:var(--card); border-radius:999px; font-size:13px }
@@ -38,6 +38,7 @@
   .flex{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
   .spacer{ flex:1 }
   .hidden{ display:none !important }
+  /* overlays can't intercept when hidden */
   .toast.hidden, .modal.hidden{ pointer-events:none !important; }
   .center{ text-align:center }
   .big{ font-size:18px }
@@ -223,7 +224,7 @@ const save = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
 function toast(m){ toastEl.textContent=m; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t=setTimeout(()=>toastEl.classList.add("hidden"),1400); }
 function shuffle(a){ const x=a.slice(); for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]} return x; }
 function pickDistractors(list, correct, n){ const pool=list.filter(x=>x!==correct), out=[]; while(out.length<n&&pool.length){ out.push(...pool.splice(Math.random()*pool.length|0,1)); } return out.slice(0,n); }
-function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
 
 /* ---------- Sounds ---------- */
 let AC, muted = localStorage.getItem(LS.mute)==="1";
@@ -236,13 +237,12 @@ const sfxCorrect=()=>{beep(880,.09,'triangle',.18);setTimeout(()=>beep(1175,.09,
 const sfxWrong=()=>{beep(220,.15,'sawtooth',.18);setTimeout(()=>beep(180,.12,'sawtooth',.16),120)};
 const sfxComplete=()=>{chord([523,659,784],.35);setTimeout(()=>chord([659,784,988],.35),380)};
 
-/* ---------- Categories + seed (adds 15) ---------- */
+/* ---------- Categories + seed (18 total) ---------- */
 const CATS = [
   "numbers","others","greetings","colors","animals","food","verbs_basic","verbs_travel",
   "phrases","questions","time","days_months","family","directions","clothing",
   "weather","body","school"
-]; // 18 total (15 added beyond the original 2)
-
+];
 const SEED = {
   numbers: { "3n1 triplets": ["Akhinsin N"], "one": ["1"], "two": ["2"], "three": ["3"] },
   others:  { "Uwa": ["House","Building","Home"], "Elo": ["Eye","Sight"], "Aga": ["Chair","Seat"], "Obo": ["Hand","Palm"] },
@@ -264,7 +264,7 @@ const SEED = {
   school: { "Escuela": ["School"], "Libro": ["Book"], "Maestro": ["Teacher"] }
 };
 
-/* ---------- Storage + migration from old keys ---------- */
+/* ---------- Storage + migration from very old keys ---------- */
 (function migrateOld(){
   const oldNums = load("lingo_numbers");
   const oldOth  = load("lingo_others");
@@ -278,13 +278,12 @@ const SEED = {
   }
 })();
 let WORDS = load(LS.words, SEED);
-/* ensure all categories exist */
-CATS.forEach(c=>{ if(!WORDS[c]) WORDS[c] = {}; });
+CATS.forEach(c=>{ if(!WORDS[c]) WORDS[c]={}; });
 save(LS.words, WORDS);
 
 /* meta, missed, unlimited */
 let META = load(LS.meta, { xp:0, hearts:5, streak:0 });
-let MISSED = new Set(load(LS.missed, []));            // store tokens like "cat::key"
+let MISSED = new Set(load(LS.missed, []));            // tokens "cat::key"
 let UNLIMITED = localStorage.getItem(LS.unlimited)==="1";
 
 /* ---------- Header + tabs ---------- */
@@ -356,7 +355,7 @@ function lookupAny(q){
   return out;
 }
 
-/* ---------- Practice (sessions, no repeats, hearts) ---------- */
+/* ---------- Practice (sessions, NO-REPEAT DISTRACTORS, hearts) ---------- */
 const state = { session:null }; // { cat, dir, mode, remaining:[{cat,key}] }
 $("#startPractice").onclick = ()=>startSession();
 $("#skipBtn").onclick = ()=>skipChallenge();
@@ -364,7 +363,6 @@ $("#clearOrder").onclick = ()=>{ $("#answerBank").innerHTML=""; $$("#bank .chip"
 $("#submitOrder").onclick = ()=>submitOrder();
 $("#goReview").onclick = ()=>{ $("#outModal").classList.add("hidden"); switchTo("dictionary"); renderDictionary(); };
 $("#dismissOut").onclick = ()=>$("#outModal").classList.add("hidden");
-
 document.addEventListener("keydown", e=>{ if(e.key.toLowerCase()==="s") skipChallenge(); });
 
 function startSession(){
@@ -386,29 +384,23 @@ function entriesFor(cat){
   });
   return arr;
 }
-function nextChallenge(){
-  const s=state.session; if(!s) return;
-  updateProgressNote();
-  if(!s.remaining.length){
-    sfxComplete();
-    $("#doneText").textContent = `You've completed all words in "${s.cat}"!`;
-    $("#doneModal").classList.remove("hidden");
-    return;
+
+/* ✅ NEW: use only remaining session entries for future distractors */
+function remainingEntriesFor(catLabel){
+  if (state.session){
+    const wantAll = state.session.cat === "all";
+    return state.session.remaining
+      .filter(({cat}) => wantAll || cat === state.session.cat)
+      .map(({cat, key}) => [cat, key]);
   }
-  const cur=s.remaining[0];
-  const meanings = WORDS[cur.cat][cur.key];
-  CURRENT = makeChallengeFrom(cur, meanings, s.mode, s.dir, s.cat);
-  renderChallenge(CURRENT);
+  return entriesFor(catLabel);
 }
-function updateProgressNote(){
-  const s=state.session; if(!s){ $("#progressNote").textContent=""; return; }
-  const total = entriesFor(s.cat).length;
-  const left = s.remaining.length;
-  $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total} • Hearts: ${META.hearts}${UNLIMITED?" (Unlimited)":""}`;
-}
+
+/* 🔁 UPDATED: build MC from remaining-only pool so solved words never reappear as options */
 function makeChallengeFrom(cur, meanings, type, direction, catLabel){
-  const pool = entriesFor(catLabel);
+  const pool = remainingEntriesFor(catLabel);  // only remaining
   const meaning = meanings[Math.random()*meanings.length|0];
+
   if(type==="mc"){
     if(direction==="en2key"){
       const distractors = pickDistractors(pool.map(([,k])=>k), cur.key, 3);
@@ -419,12 +411,14 @@ function makeChallengeFrom(cur, meanings, type, direction, catLabel){
       return { type:"mc", prompt:`Translate: "${cur.key}"`, options:shuffle([meaning,...distractors]), answer:meaning, cur };
     }
   }else{
+    // Word-bank: pieces are only from the current item (plus small neutral noise)
     const tokens = (direction==="en2key"?cur.key:meaning).split(/\s+/).filter(Boolean);
     const noise = ["y","de","la","el","un","una","muy","por","para","con"];
     const bank = shuffle([...tokens, ...shuffle(noise).slice(0, Math.min(2, noise.length))]);
     return { type:"order", prompt:`Build: "${direction==='en2key'?meaning:cur.key}"`, tokens, bank, cur };
   }
 }
+
 function renderChallenge(ch){
   $("#prompt").textContent = ch.prompt;
   $("#mcWrap").classList.add("hidden"); $("#orderWrap").classList.add("hidden");
@@ -448,11 +442,7 @@ function renderChallenge(ch){
 }
 function gradeMC(btn, correct, cur){
   for(const b of $$("#mcWrap .answerChoice")) b.disabled=true;
-  if(correct){
-    onCorrect(cur);
-  }else{
-    onWrong(cur);
-  }
+  if(correct){ onCorrect(cur); } else { onWrong(cur); }
 }
 function submitOrder(){
   const given=Array.from($("#answerBank").children).map(x=>x.dataset.tok).join(" ");
@@ -462,15 +452,13 @@ function submitOrder(){
 function onCorrect(cur, order=false){
   META.xp += order?12:10; META.streak += 1; if(META.streak%5===0 && !UNLIMITED) META.hearts = Math.min(99, META.hearts+1);
   save(LS.meta,META); updateBadges(); sfxCorrect(); toast(order?"¡Perfecto! +12 XP":"+10 XP");
-  // remove from session; also from MISSED if present
+  // remove from session & from MISSED
   state.session.remaining = state.session.remaining.filter(x=>!(x.cat===cur.cat && x.key===cur.key));
   MISSED.delete(`${cur.cat}::${cur.key}`); save(LS.missed, Array.from(MISSED));
   setTimeout(nextChallenge, 500);
 }
 function onWrong(cur, order=false, corr=null){
-  if(!UNLIMITED){
-    META.hearts = Math.max(0, META.hearts-1);
-  }
+  if(!UNLIMITED){ META.hearts = Math.max(0, META.hearts-1); }
   META.streak=0; save(LS.meta,META); updateBadges(); sfxWrong();
   MISSED.add(`${cur.cat}::${cur.key}`); save(LS.missed, Array.from(MISSED));
   toast(order?`Answer: ${corr}`:"Not quite.");
@@ -605,9 +593,12 @@ function switchTo(id){
   ["learn","practice","dictionary"].forEach(sec=>$("#"+sec).classList.toggle("hidden", sec!==id));
 }
 
-/* ---------- Lookup smalls ---------- */
+/* ---------- Initial UI ---------- */
+function renderDictionary(){ /* intentionally declared above; first call here */ }
+renderDictionary = renderDictionary; // keep reference for tabs
 function updateUI(){ updateBadges(); renderDictionary(); }
 updateUI();
+
 }); // DOMContentLoaded
 </script>
 </body>
