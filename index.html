@@ -52,6 +52,7 @@
   .panel2{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; width:min(560px, 94%); box-shadow:0 20px 60px rgba(0,0,0,.35) }
   .rowC{ display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap }
   .mute{ margin-left:6px; }
+  .reviewRow{ display:flex; align-items:center; gap:10px; justify-content:space-between; padding:10px; border:1px dashed var(--line); border-radius:12px; background:rgba(34,211,238,.05) }
 </style>
 </head>
 <body>
@@ -61,7 +62,7 @@
       <h1 class="title">Lingo Dictionary — Duolingo-style</h1>
       <span id="streakBadge" class="badge gold" title="Streak">🔥 <span id="streak">0</span></span>
       <span id="xpBadge" class="badge ok" title="XP">⭐ <span id="xp">0</span></span>
-      <span id="heartsBadge" class="badge warn" title="Hearts">❤ <span id="hearts">3</span></span>
+      <span id="heartsBadge" class="badge warn" title="Hearts">❤ <span id="hearts">5</span></span>
       <div class="spacer"></div>
       <label class="pill">🔊 Sound <input id="muteToggle" class="mute" type="checkbox" /></label>
       <button id="helpBtn" class="btn ghost">Controls</button>
@@ -146,6 +147,13 @@
       <button id="addBtn" class="btn primary">Add Word</button>
     </div>
 
+    <!-- Earn hearts by review -->
+    <div id="reviewCard" class="card" style="margin-top:12px; display:none">
+      <div class="big" style="font-weight:800;margin-bottom:6px">Review to earn hearts</div>
+      <div class="muted" style="margin-bottom:8px">Practice missed words. Each correct review restores <b>+1 ❤</b> (up to 5).</div>
+      <div id="reviewList" class="grid" style="grid-template-columns:1fr"></div>
+    </div>
+
     <div id="dictList" class="cards" style="margin-top:12px"></div>
   </section>
 </div>
@@ -157,8 +165,19 @@
 <div id="helpModal" class="toast hidden" style="top:16px; bottom:auto; max-width:720px; width:calc(100% - 32px)">
   <div class="big" style="margin-bottom:6px; font-weight:900">Controls</div>
   <div class="muted">
-    • Navigate tabs at the top • <span class="kbd">Enter</span> on lookup •
-    Practice: choose category, click answers or build with chips • <span class="kbd">S</span> skip • <span class="kbd">H</span> help • Toggle sound with checkbox
+    • Navigate tabs • <span class="kbd">Enter</span> on lookup • Practice: choose category and answer • <span class="kbd">S</span> skip • <span class="kbd">H</span> help • Toggle sound
+  </div>
+</div>
+
+<!-- Out of Hearts Modal -->
+<div id="outModal" class="modal hidden">
+  <div class="panel2 center">
+    <div class="big" style="font-weight:900">Out of hearts</div>
+    <div class="muted" style="margin:8px 0 12px">Review missed words in the Dictionary to earn hearts and continue.</div>
+    <div class="rowC">
+      <button id="goReview" class="btn primary">Go to Dictionary</button>
+      <button id="dismissOut" class="btn">Close</button>
+    </div>
   </div>
 </div>
 
@@ -171,6 +190,17 @@
       <button id="chooseAnother" class="btn">Choose Another Category</button>
       <button id="repeatSession" class="btn ghost">Repeat This Category</button>
       <button id="closeDone" class="btn primary">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div id="reviewModal" class="modal hidden">
+  <div class="panel2">
+    <div class="big" id="reviewPrompt" style="margin-bottom:10px;font-weight:800">Review</div>
+    <div id="reviewChoices" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
+    <div class="rowC" style="margin-top:10px">
+      <button id="closeReview" class="btn">Close</button>
     </div>
   </div>
 </div>
@@ -195,20 +225,21 @@ const SEED_OTHERS = {
 };
 
 /* Storage Keys */
-const LS_KEYS = { numbers: "lingo_numbers", others: "lingo_others", meta: "lingo_meta", mute: "lingo_mute" };
+const LS_KEYS = { numbers: "lingo_numbers", others: "lingo_others", meta: "lingo_meta", mute: "lingo_mute", missed: "lingo_missed" };
 
 /* Load or seed */
 const loadJson = (k)=>{ try{ return JSON.parse(localStorage.getItem(k)||"null"); }catch{ return null; } };
 const saveJson = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 let words_numbers = loadJson(LS_KEYS.numbers) || SEED_NUMBERS;
 let words_others  = loadJson(LS_KEYS.others)  || SEED_OTHERS;
-let META = loadJson(LS_KEYS.meta) || { xp:0, hearts:3, streak:0 };
+let META = loadJson(LS_KEYS.meta) || { xp:0, hearts:5, streak:0 };
+let MISSED = new Set(loadJson(LS_KEYS.missed) || []); // track Esan keys that were missed
 saveJson(LS_KEYS.numbers, words_numbers);
 saveJson(LS_KEYS.others,  words_others);
 saveJson(LS_KEYS.meta,    META);
 
 /* =============================
-   Sounds (Web Audio, lightweight)
+   Sounds (Web Audio)
    ============================= */
 let AC, muted = localStorage.getItem(LS_KEYS.mute) === "1";
 const muteToggle = $("#muteToggle");
@@ -254,13 +285,14 @@ tabs.forEach(t=>{
     ["learn","practice","dictionary"].forEach(id=>{
       $("#"+id).classList.toggle("hidden", id !== t.dataset.tab);
     });
+    if (t.dataset.tab === "dictionary") renderDictionary();
   });
 });
+const toastEl = $("#toast");
 function updateBadges(){ $("#xp").textContent = META.xp; $("#hearts").textContent = META.hearts; $("#streak").textContent = META.streak; }
 updateBadges();
 
 /* Controls & keyboard */
-const toastEl = $("#toast");
 $("#helpBtn").onclick = ()=>toggleHelp();
 document.addEventListener("keydown", (e)=>{
   const k = e.key.toLowerCase();
@@ -276,7 +308,7 @@ function toggleHelp(){
 }
 
 /* =============================
-   2) Learn (lookup + view)
+   2) Learn
    ============================= */
 $("#lookupBtn").onclick = doLookup;
 $("#lookupInput").addEventListener("keydown", e=>{ if (e.key === "Enter") doLookup(); });
@@ -328,32 +360,34 @@ function lookupBothWays(q){
 }
 
 /* =============================
-   3) Practice (Duolingo-style) with sessions & no repeats
+   3) Practice with sessions & no repeats + hearts/missed
    ============================= */
-const state = {
-  session: null // { cat, dir, mode, remainingKeys:[...] }
-};
-
+const state = { session: null }; // { cat, dir, mode, remainingKeys:[...] }
 $("#startPractice").onclick = ()=>startSession();
 $("#skipBtn").onclick = ()=>skipChallenge();
 $("#clearOrder").onclick = ()=>clearOrder();
 $("#submitOrder").onclick = ()=>submitOrder();
+$("#goReview").onclick = ()=>{ $("#outModal").classList.add("hidden"); switchTo("dictionary"); renderDictionary(); };
+$("#dismissOut").onclick = ()=>$("#outModal").classList.add("hidden");
 
 function startSession(){
-  const cat = $("#catPracticeSel").value;        // all|numbers|others
-  const mode = $("#modeSel").value;              // mc|order
-  const dir  = $("#directionSel").value;         // en2esan|esan2en
+  if (META.hearts <= 0){ showOutOfHearts(); return; }
+  const cat = $("#catPracticeSel").value;
+  const mode = $("#modeSel").value;
+  const dir  = $("#directionSel").value;
 
-  const pool = entriesForCategory(cat);          // [ [esanKey, [meanings...]], ... ]
+  const pool = entriesForCategory(cat);
   if (pool.length === 0){ toast("No words in this category."); return; }
 
   state.session = {
     cat, mode, dir,
-    remainingKeys: shuffle(pool.map(([k])=>k)) // only keys tracked; remove on correct
+    remainingKeys: shuffle(pool.map(([k])=>k))
   };
   $("#challengeArea").style.display = "block";
   nextChallenge();
 }
+
+function showOutOfHearts(){ $("#outModal").classList.remove("hidden"); }
 
 function entriesForCategory(cat){
   const all = [];
@@ -367,18 +401,14 @@ function nextChallenge(){
   if (!s) return;
   updateProgressNote();
   if (s.remainingKeys.length === 0){
-    // Done!
     sfxComplete();
     $("#doneText").textContent = `You've completed all words in "${s.cat}"!`;
     $("#doneModal").classList.remove("hidden");
     return;
   }
-  // pick current key from remaining (don’t remove yet; remove only on correct)
   const curKey = s.remainingKeys[0];
   const dict = {...words_numbers, ...words_others};
   const meanings = dict[curKey];
-
-  // make challenge per current session settings
   CURRENT = makeChallengeFrom(curKey, meanings, s.mode, s.dir, s.cat);
   renderChallenge(CURRENT);
 }
@@ -387,7 +417,7 @@ function updateProgressNote(){
   const s = state.session; if (!s){ $("#progressNote").textContent = ""; return; }
   const total = entriesForCategory(s.cat).length;
   const left = s.remainingKeys.length;
-  $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total}`;
+  $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total} • Hearts: ${META.hearts}`;
 }
 
 function makeChallengeFrom(key, meanings, type, direction, catLabel){
@@ -456,16 +486,16 @@ function gradeMC(btn, correct, keyForRemoval){
     if (META.streak % 5 === 0) META.hearts = Math.min(5, META.hearts + 1);
     saveJson(LS_KEYS.meta, META); updateBadges();
     sfxCorrect(); toast("Correct! +10 XP");
-    // remove this key from remaining so it won't repeat
-    removeKeyFromSession(keyForRemoval);
+    removeKeyFromSession(keyForRemoval); // no repeats
     setTimeout(nextChallenge, 500);
   } else {
     btn.classList.add("wrong");
-    META.hearts = Math.max(0, META.hearts - 1);
+    addMissed(keyForRemoval);
+    loseHeart();
     META.streak = 0;
     saveJson(LS_KEYS.meta, META); updateBadges();
     sfxWrong(); toast("Not quite. -1 ❤");
-    setTimeout(nextChallenge, 600);
+    setTimeout(()=>{ if (META.hearts<=0) showOutOfHearts(); nextChallenge(); }, 600);
   }
 }
 
@@ -483,11 +513,12 @@ function submitOrder(){
     removeKeyFromSession(CURRENT.key);
     setTimeout(nextChallenge, 500);
   } else {
-    META.hearts = Math.max(0, META.hearts - 1);
+    addMissed(CURRENT.key);
+    loseHeart();
     META.streak = 0;
     saveJson(LS_KEYS.meta, META); updateBadges();
     sfxWrong(); toast(`Answer: ${correct}`);
-    setTimeout(nextChallenge, 900);
+    setTimeout(()=>{ if (META.hearts<=0) showOutOfHearts(); nextChallenge(); }, 900);
   }
 }
 
@@ -496,12 +527,13 @@ function removeKeyFromSession(key){
   s.remainingKeys = s.remainingKeys.filter(k => k !== key);
   updateProgressNote();
 }
-
-function skipChallenge(){
-  if (!state.session) return;
-  META.streak = 0; saveJson(LS_KEYS.meta, META); updateBadges();
-  toast("Skipped");
-  setTimeout(nextChallenge, 120);
+function addMissed(key){
+  MISSED.add(key);
+  saveJson(LS_KEYS.missed, Array.from(MISSED));
+}
+function loseHeart(){
+  META.hearts = Math.max(0, META.hearts - 1);
+  saveJson(LS_KEYS.meta, META); updateBadges();
 }
 
 /* Helpers */
@@ -517,14 +549,18 @@ function pickTokenNoise(n){
 function shuffle(a){ const arr=a.slice(); for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
 
 /* =============================
-   4) Dictionary (view / add / import / export)
+   4) Dictionary + Review to earn hearts
    ============================= */
 $("#catFilter").onchange = renderDictionary;
 $("#addBtn").onclick = ()=>openAddModal();
 $("#exportBtn").onclick = exportJson;
 $("#importFile").onchange = importJson;
+$("#closeReview").onclick = ()=>$("#reviewModal").classList.add("hidden");
 
 function renderDictionary(){
+  // Review card
+  renderReviewCard();
+
   const filter = $("#catFilter").value;
   const list = $("#dictList"); list.innerHTML = "";
   const data = [];
@@ -555,98 +591,52 @@ function renderDictionary(){
   });
 }
 
-function openAddModal(opts={}){
-  const {cat="others", presetKey="", presetMeanings=""} = opts;
-  const modal = document.createElement("div");
-  modal.className = "toast";
-  modal.style.maxWidth = "720px"; modal.style.width = "calc(100% - 32px)";
-  modal.innerHTML = `
-    <div class="big" style="font-weight:900; margin-bottom:8px">Add / Edit Word</div>
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
-      <label>Category
-        <select id="mCat">
-          <option value="numbers">Numbers</option>
-          <option value="others">Others</option>
-        </select>
-      </label>
-      <label>Word (Esan key)
-        <input id="mKey" type="text" placeholder="e.g., Uwa" />
-      </label>
-      <label style="grid-column:1 / -1">Meanings (English, comma separated)
-        <input id="mVals" type="text" placeholder="e.g., House, Building, Home" />
-      </label>
-    </div>
-    <div class="flex" style="margin-top:8px">
-      <button id="mSave" class="btn primary">Save</button>
-      <button id="mCancel" class="btn">Cancel</button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  $("#mCat", modal).value = cat;
-  $("#mKey", modal).value = presetKey;
-  $("#mVals", modal).value = presetMeanings;
-  $("#mCancel", modal).onclick = ()=>modal.remove();
-  $("#mSave", modal).onclick = ()=>{
-    const c = $("#mCat", modal).value;
-    const k = $("#mKey", modal).value.trim();
-    const vals = $("#mVals", modal).value.split(",").map(s=>s.trim()).filter(Boolean);
-    if (!k || !vals.length){ alert("Please enter a word and at least one meaning."); return; }
-    if (c==="numbers") words_numbers[k] = vals; else words_others[k] = vals;
-    persistDicts(); modal.remove(); renderDictionary(); toast("Saved");
-  };
-}
-function exportJson(){
-  const blob = new Blob([JSON.stringify({numbers:words_numbers, others:words_others}, null, 2)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "lingo-dictionary.json";
-  a.click();
-}
-function importJson(e){
-  const f = e.target.files[0]; if (!f) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    try{
-      const obj = JSON.parse(reader.result);
-      if (obj.numbers && obj.others){
-        words_numbers = obj.numbers;
-        words_others  = obj.others;
-        persistDicts(); renderDictionary(); toast("Imported");
-      } else { alert("Invalid JSON structure."); }
-    } catch(err){ alert("Failed to parse JSON."); }
-  };
-  reader.readAsText(f);
+function renderReviewCard(){
+  const listEl = $("#reviewList");
+  const card = $("#reviewCard");
+  const allDict = {...words_numbers, ...words_others};
+  const missedArr = Array.from(MISSED).filter(k => allDict[k]); // only keep existing keys
+  if (!missedArr.length){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  listEl.innerHTML = "";
+  missedArr.forEach(k=>{
+    const row = document.createElement("div");
+    row.className = "reviewRow";
+    row.innerHTML = `
+      <div><b>${escapeHtml(k)}</b> <span class="muted">= ${allDict[k].map(m=>escapeHtml(m)).join(", ")}</span></div>
+      <div class="rowC">
+        <button class="btn primary">Practice</button>
+        <button class="btn ghost">Remove</button>
+      </div>
+    `;
+    const [practiceBtn, removeBtn] = row.querySelectorAll("button");
+    practiceBtn.onclick = ()=>openReview(k, allDict[k]);
+    removeBtn.onclick = ()=>{
+      MISSED.delete(k);
+      saveJson(LS_KEYS.missed, Array.from(MISSED));
+      renderReviewCard();
+    };
+    listEl.appendChild(row);
+  });
 }
 
-/* =============================
-   5) Utilities & Done flow
-   ============================= */
-function switchTo(id){
-  tabs.forEach(x => x.classList.toggle("active", x.dataset.tab===id));
-  ["learn","practice","dictionary"].forEach(sec => $("#"+sec).classList.toggle("hidden", sec!==id));
-}
-function persistDicts(){ saveJson(LS_KEYS.numbers, words_numbers); saveJson(LS_KEYS.others, words_others); }
-function toast(msg){ toastEl.textContent = msg; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t = setTimeout(()=>toastEl.classList.add("hidden"), 1400); }
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+function openReview(key, meanings){
+  // Build a short MC for this single word (direction chosen for good learning: Esan -> English)
+  $("#reviewPrompt").textContent = `Review: Translate "${key}"`;
+  const allMeanings = Object.values({...words_numbers, ...words_others}).flat();
+  const target = meanings[Math.floor(Math.random()*meanings.length)];
+  const distractors = pickDistractors(allMeanings, target, 3);
+  const options = shuffle([target, ...distractors]);
 
-/* Done modal actions */
-$("#chooseAnother").onclick = ()=>{
-  $("#doneModal").classList.add("hidden");
-  switchTo("practice");
-  // user can change category in dropdown, then press Start
-};
-$("#repeatSession").onclick = ()=>{
-  if (!state.session){ $("#doneModal").classList.add("hidden"); return; }
-  // reset remaining keys from current category
-  const s = state.session;
-  s.remainingKeys = shuffle(entriesForCategory(s.cat).map(([k])=>k));
-  $("#doneModal").classList.add("hidden");
-  nextChallenge();
-};
-$("#closeDone").onclick = ()=>{ $("#doneModal").classList.add("hidden"); };
-
-/* Initial renders */
-renderDictionary();
-</script>
-</body>
-</html>
+  const wrap = $("#reviewChoices"); wrap.innerHTML = "";
+  options.forEach(opt=>{
+    const b = document.createElement("button");
+    b.className = "answerChoice";
+    b.textContent = opt;
+    b.onclick = ()=>{
+      if (opt === target){
+        META.hearts = Math.min(5, META.hearts + 1);
+        saveJson(LS_KEYS.meta, META); updateBadges();
+        MISSED.delete(key);
+        saveJson(LS_KEYS.missed, Array.from(MISSED));
+        sfxC
