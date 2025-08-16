@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Lingo Dictionary — Duolingo-style (Versioned Data + Reset)</title>
+<title>Lingo Dictionary — Duolingo-style (Flash MC Feedback)</title>
 <style>
   :root{
     --bg:#0b1220; --panel:#0f172a; --ink:#e2e8f0; --muted:#94a3b8;
@@ -43,9 +43,17 @@
   .center{ text-align:center }
   .big{ font-size:18px }
   @media (max-width:600px){ .title{font-size:20px} }
-  .answerChoice{ width:100%; text-align:left; background:#0c1730; border:1px solid var(--line); color:var(--ink); padding:12px; border-radius:12px; cursor:pointer; }
-  .answerChoice.correct{ outline:2px solid var(--ok) }
-  .answerChoice.wrong{ outline:2px solid var(--warn) }
+
+  /* === Multiple-choice buttons + flash feedback === */
+  .answerChoice{
+    width:100%; text-align:left; background:#0c1730; border:1px solid var(--line);
+    color:var(--ink); padding:12px; border-radius:12px; cursor:pointer;
+    transition: background-color .25s ease, transform .05s ease, outline-color .25s ease;
+  }
+  .answerChoice:active{ transform: scale(0.98); }
+  .answerChoice.correct{ background: rgba(6,214,160,.18); outline:2px solid var(--ok) }
+  .answerChoice.wrong{ background: rgba(239,68,68,.18); outline:2px solid var(--warn) }
+
   .bank{ display:flex; gap:8px; flex-wrap:wrap; padding:8px; background:#0c1730; border:1px dashed var(--line); border-radius:12px }
   .chip{ padding:8px 10px; background:#0f1d36; border:1px solid var(--line); border-radius:999px; cursor:pointer }
   .chip.used{ opacity:.5; pointer-events:none }
@@ -75,8 +83,8 @@
         <label style="margin-left:6px">Unlimited <input id="unlimitedToggle" type="checkbox" /></label>
       </span>
       <button id="helpBtn" class="btn ghost" type="button">Controls</button>
-      <!-- NEW: Reset Data button -->
-      <button id="resetDataBtn" class="btn ghost" type="button" title="Wipe saved words & reload from code">Reset Factory Data</button>
+      <!-- Reset Data button -->
+      <button id="resetDataBtn" class="btn ghost" type="button" title="Wipe saved words & reload from code">Reset Data</button>
     </div>
     <div class="tabs">
       <button class="tab active" data-tab="learn" type="button">Learn</button>
@@ -250,7 +258,7 @@ const SEED = {
   numbers: { "One": ["Okpa"],"Two": ["Eva"],"Three": ["Eha"],"Four": ["Enen"],"Five": ["Isen"],"Six": ["Ehan"],"Seven": ["Ihilon"],"Eight": ["Elenlen"],"Nine": ["Isilin"],"Ten": ["Igbe"],"Eleven": ["Ugbolo"],"Twelve": ["Igbeva"],"Thirteen": ["Igbeha"],"Fourteen": ["Igbenen"],"Fifteen": ["Igbisen"],"Sixteen": ["Igbehan"],"Seventeen": ["Igbihilon"],"Eighteen": ["Igbelenlen"],"Nineteen": ["Igbisilin"],"Twenty": ["Uje"] },
   others:  { "Uwa": ["House","Building","Home"], "Elo": ["Eye","Sight"], "Aga": ["Chair","Seat"], "Obo": ["Hand","Palm"] },
   greetings: { "Hello": ["Bodia e"],"Hi": ["Bodia e"],"Good morning": ["Aisan"],"Good afternoon": ["Khara"],"Good evening": ["Khara"],"Good night": ["Okin ewie"],"Goodbye": ["Okinbue"],"Please": ["Huean"],"Thank you": ["Obuku"],"You are welcome": ["~"],"Excuse me": ["~"],"Im sorry": ["Ote"],"Yes": ["Eh He"],"No": ["Eh Ye"],"Maybe": ["Egheso"],"I dont know": ["Men bha len"],"Do you speak [language]?": ["We ze [uro]?"],"I dont understand": ["O bha mu men elo kuere"],"What is your name?": ["Bati elin e?"],"My name is...": ["Atie men"] },
-  descriptions: { "Big": ["Udede"],"Small": ["Khere"],"Hot": ["Ebekhua"],"Cold": ["Ebefuofua"],"Fast": ["Tuq-Mhin"],"Slow": ["Kike"],"Good": ["O  meen"],"Bad": ["Kholo mhin"],"New": ["Osogbon"],"Old": ["Fafa"],"Happy": ["Eghonghon"],"Sad": ["Onon ighonghon"],"Easy": ["Lekhe"],"Hard": ["Kaka-mhin"],"Beautiful": ["Meose"],"Funny": ["Ojie"],"Tall": ["Taan"],"Small amount ": ["Obhi ?khere"],"bigger": ["mama udede"],"fat": ["Konkon"],"tiny": ["ikwe'kwi"],"serious": ["Kaka mhin"],"tiresome": ["O khanlan"]},
+  descriptions: { "Big": ["Udede"],"Small": ["Khere"],"Hot": ["Ebekhua"],"Cold": ["Ebefuofua"],"Fast": ["Tuq-Mhin"],"Slow": ["Kike"],"Good": ["O  meen"],"Bad": ["Kholo mhin"],"New": ["Osogbon"],"Old": ["Fafa"],"Happy": ["Eghonghon"],"Sad": ["Onon ighonghon"],"Easy": ["Lekhe"],"Hard": ["Kaka-mhin"],"Beautiful": ["Meose"],"Funny": ["Ojie"],"Tall": ["Taan"],"Small amount ": ["Obhi ?khere"],"bigger": ["mama udede"],"fat": ["Konkon"],"tiny": ["ikwe'kwi"],"serious": ["Kaka mhin"],"tiresome": ["O khanlan"]},
   animals: { "Alligator": ["agbaka"],"Ant": ["Abibi"],"Antelope": ["Uzo"],"Bat": ["Akogan"],"Bird": ["afianmhen"],"Butterfly": ["Akpakpa"],"Cat": ["onogbo"],"Chameleon": ["Alokhin"],"Chicken": ["?kh?"],"Chimpanzee": ["Osa"],"Cobra": ["Ebi"],"Crab": ["Ozi"],"Cricket": ["osen"],"Crocodile": ["agbaka"],"Deer": ["uzo"],"Dog": ["áwà"],"Earthworm": ["Ahulu"],"Elephant": ["Eni"],"Fly": ["i?khi??n"],"Frog": ["akil?"],"Goat": ["?bhe"],"Grasshopper": ["Ugbaf?n"],"Hawk": ["Ahi?nl?nkp?n"],"Horse": ["Akasi"],"Leopard": ["Atanakpa"],"Lion": ["Oduma"],"Monkey": ["emenlen"],"Pig": ["Esi"],"Porcupine": ["Qkhaen"],"Rabbit": ["Èluo"],"Rat": ["Of?n"],"Rooster": ["??kpà"],"Scorpion": ["Akpin(N)"],"Shark": ["Agbaka(N)"],"Sheep": ["Ohuan"],"Snake": ["?y?n"],"Sponge": ["Ihi?n"],"Squirrel": ["?tan"],"Tiger": ["Atanakpa"],"Tick": ["Arue"],"Tortoise": ["ewi"],"Turtle": ["ewi"],"Vulture": ["Udene"],"Woodpecker": ["?kpokporan"] },
   food: { "Pan": ["Bread"], "Agua": ["Water"], "Manzana": ["Apple"] },
   verbs_basic: { "To live": ["Dia"],"To die": ["Dokin"],"To sleep": ["Wele"],"To wake up": ["Re obowe"],"To run": ["Riune"],"To walk": ["Tete khian"],"To sit": ["Dotua"],"To stand": ["Gbano"],"To open": ["Tuje"],"To close": ["Khue"],"To read": ["Tie"],"To write": ["Ogbemi"],"To listen": ["Re eho"],"To talk": ["Talow"],"To call (phone)": ["Atie"],"To think": ["Eria"],"To remember": ["Yere"],"To forget": ["Bha yere"],"To wait": ["Modia"],"To help": ["Urekpa"],"To Accept": ["Mien"],"To Admit": ["Mienkue"],"To Agree": ["Aka"],"To Argue": ["Khon"],"To Arrive": ["Re se"],"To Ask": ["Ni"],"To assist": ["Nemhen"],"To be": ["aye"],"To begin": ["Da"],"To bought": ["ude"],"To build": ["bo"],"To build": ["la bon"],"To buy": ["de"],"To Call": ["Atie"],"To Arrive": ["Vae"],"To Come": ["Va de"],"To Care": ["Gbe"],"To Carried": ["Mu"],"To Catch": ["muen"],"To Choose": ["Ze"],"To Wash": ["Gbe"],"To Clean": ["Gbe"],"To Clean Clothes": ["Bolia"],"To complain": ["gui"],"To cook": ["nien"],"To cut": ["hian"],"To die": ["Yuu"],"To do": ["lu"],"To Eat": ["Le"],"To feel": ["fure"],"To Fight": ["Okhonlen"],"To find": ["Mienrie"],"To finish": ["fo"],"To follow": ["Deso"],"To forget": ["Ye"],"To Give": ["Re"],"To get": ["Ne"],"To go": ["Khian"],"To Went": ["Khian"],"To grew": ["Wanre"],"To had": ["mhon"],"To kill": ["gbe"],"To know": ["leen"],"To lead": ["oze"],"To learn": ["Lue"],"To leave": ["Khian"],"To left": ["sibi"],"To listen": ["hon"],"To look": ["ghe"],"To love": ["ihoemoegbe"],"To loves": ["hoemen"],"To make": ["waa"],"To open": ["Tuje"],"To protect": ["Odije"],"To reach": ["Sele"],"To receive": ["mien"],"To remain": ["Kere"],"To research": ["Tie"],"To respect": ["Ekpen"],"To return": ["Vae"],"To say": ["ta"],"To say": ["talow"],"To see": ["da ghe"],"To sell": ["khien"],"To send": ["Jie"],"To send": ["Ne"],"To serve": ["Ga"],"To sit": ["d'otua"],"To sleep": ["Wele"],"To speak": ["Talow"],"To spend": ["ria"],"To stand": ["gbano"],"To stay": ["dia"],"To stop": ["mundian"],"To stop": ["modia"],"To Take": ["Mien"],"To tell": ["Tama"],"To thank": ["obulu"],"To think": ["ria"],"To try": ["obo men dale"],"To understand": ["O mu men elo khuere"],"To use": ["Noo"],"To visit": ["Fe"],"To wait": ["Modia"],"To Walk": ["Tete Khian"],"To want": ["gwano"],"To Went": ["Yo"],"To work": ["iwenna"],"To Find": ["Mi"],"To able": ["ki da"] },
@@ -267,7 +275,8 @@ const SEED = {
   school: { "Home": ["Uwa"],"School": ["Uwa ebe"],"Work": ["Iwenna"],"Office": ["Ioffice"],"Store": ["Eki"],"Restaurant": ["Irestaurant"],"Market": ["Eki"],"Hospital": ["Uwa ukhumun"],"Bank": ["Aza"],"Airport": ["~"]}
 };
 
-/* ---------- Data Versioning (BUMP THIS date to the lastest date when you change seeds/categories) ---------- */
+
+/* ---------- Data Versioning (BUMP THIS when you change seeds/categories) ---------- */
 const DATA_VERSION = '2025-08-16-a';
 const VERSION_KEY = 'lingo_words_version';
 
@@ -285,7 +294,7 @@ const VERSION_KEY = 'lingo_words_version';
   }
 })();
 
-/* NEW: If version changed, overwrite saved words with SEED from code */
+/* If version changed, overwrite saved words with SEED from code */
 const savedVersion = localStorage.getItem(VERSION_KEY);
 if (savedVersion !== DATA_VERSION) {
   save(LS.words, SEED);
@@ -467,10 +476,25 @@ function renderChallenge(ch){
     $("#orderWrap").classList.remove("hidden");
   }
 }
-function gradeMC(btn, correct, cur){
-  for(const b of $$("#mcWrap .answerChoice")) b.disabled=true;
-  if(correct){ onCorrect(cur); } else { onWrong(cur); }
+
+/* ✅ NEW: Flash green/red on click, then advance after ~450ms */
+function gradeMC(btn, isCorrect, cur){
+  // lock all options so the user can’t click more while we flash feedback
+  for(const b of $$("#mcWrap .answerChoice")) b.disabled = true;
+
+  // add the visual feedback class to the clicked button
+  btn.classList.add(isCorrect ? "correct" : "wrong");
+
+  // wait a beat so the user sees the color, then continue
+  setTimeout(() => {
+    if (isCorrect) {
+      onCorrect(cur);   // will render the next challenge
+    } else {
+      onWrong(cur);     // shows wrong feedback & then continues
+    }
+  }, 150);
 }
+
 function submitOrder(){
   if (!CURRENT) return;
   const given=Array.from($("#answerBank").children).map(x=>x.dataset.tok).join(" ");
