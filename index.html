@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Lingo Dictionary — Duolingo-style (Fixed Start + No-repeat)</title>
+<title>Lingo Dictionary — Duolingo-style (Versioned Data + Reset)</title>
 <style>
   :root{
     --bg:#0b1220; --panel:#0f172a; --ink:#e2e8f0; --muted:#94a3b8;
@@ -75,6 +75,8 @@
         <label style="margin-left:6px">Unlimited <input id="unlimitedToggle" type="checkbox" /></label>
       </span>
       <button id="helpBtn" class="btn ghost" type="button">Controls</button>
+      <!-- NEW: Reset Data button -->
+      <button id="resetDataBtn" class="btn ghost" type="button" title="Wipe saved words & reload from code">Reset Factory Data</button>
     </div>
     <div class="tabs">
       <button class="tab active" data-tab="learn" type="button">Learn</button>
@@ -150,7 +152,7 @@
     <!-- Earn hearts by review -->
     <div id="reviewCard" class="card" style="margin-top:12px; display:none">
       <div class="big" style="font-weight:800;margin-bottom:6px">Review to earn hearts</div>
-      <div class="muted" style="margin-bottom:8px">Practice missed words. Each correct review restores <b>+1 ❤</b> (up to 5).</div>
+      <div class="muted" style="margin-bottom:8px">Practice missed words. Each correct review restores <b>+1 ❤</b>.</div>
       <div id="reviewList" class="grid" style="grid-template-columns:1fr"></div>
     </div>
 
@@ -165,7 +167,7 @@
 <div id="helpModal" class="toast hidden" style="top:16px; bottom:auto; max-width:720px; width:calc(100% - 32px)">
   <div class="big" style="margin-bottom:6px; font-weight:900">Controls</div>
   <div class="muted">
-    • Practice: choose a category (or All) • Unlimited mode lets you keep playing even at 0 hearts • Use Dictionary to add/edit words or review misses for hearts
+    • Practice: choose a category (or All) • Unlimited mode keeps hearts from dropping • Dictionary lets you add/edit words and review misses for hearts
   </div>
 </div>
 
@@ -225,7 +227,7 @@ const save = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
 function toast(m){ toastEl.textContent=m; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t=setTimeout(()=>toastEl.classList.add("hidden"),1400); }
 function shuffle(a){ const x=a.slice(); for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]} return x; }
 function pickDistractors(list, correct, n){ const pool=list.filter(x=>x!==correct), out=[]; while(out.length<n&&pool.length){ out.push(...pool.splice(Math.random()*pool.length|0,1)); } return out.slice(0,n); }
-function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
 
 /* ---------- Sounds ---------- */
 let AC, muted = localStorage.getItem(LS.mute)==="1";
@@ -240,32 +242,36 @@ const sfxComplete=()=>{chord([523,659,784],.35);setTimeout(()=>chord([659,784,98
 
 /* ---------- Categories + seed (18 total) ---------- */
 const CATS = [
-  "numbers","others","greetings","colors","animals","food","verbs_basic","verbs_travel",
-  "phrases","questions","time","days_months","family","directions","clothing",
+  "numbers","others","greetings","descriptions","animals","food","verbs_basic","verbs_travel",
+  "nouna","questions","time","commonverbs","family","directions","clothing",
   "weather","body","school"
 ];
 const SEED = {
-  numbers: { "Hello": ["Bodia e"],"Hi": ["Bodia e"],"Good morning": ["Aisan"],"Good afternoon": ["Khara"],"Good evening": ["Khara"],"Good night": ["Okin ewie"],"Goodbye": ["Okinbue"],"Please": ["Huean"],"Thank you": ["Obuku"],"You are welcome": ["~"],"Excuse me": ["~"],"Im sorry": ["Ote"],"Yes": ["Eh He"],"No": ["Eh Ye"],"Maybe": ["Egheso"],"I dont know": ["Men bha len"],"Do you speak [language]?": ["We ze [uro]?"],"I dont understand": ["O bha mu men elo kuere"],"What is your name?": ["Bati elin e?"],"My name is...": ["Atie men"]},
+  numbers: { "One": ["Okpa"],"Two": ["Eva"],"Three": ["Eha"],"Four": ["Enen"],"Five": ["Isen"],"Six": ["Ehan"],"Seven": ["Ihilon"],"Eight": ["Elenlen"],"Nine": ["Isilin"],"Ten": ["Igbe"],"Eleven": ["Ugbolo"],"Twelve": ["Igbeva"],"Thirteen": ["Igbeha"],"Fourteen": ["Igbenen"],"Fifteen": ["Igbisen"],"Sixteen": ["Igbehan"],"Seventeen": ["Igbihilon"],"Eighteen": ["Igbelenlen"],"Nineteen": ["Igbisilin"],"Twenty": ["Uje"] },
   others:  { "Uwa": ["House","Building","Home"], "Elo": ["Eye","Sight"], "Aga": ["Chair","Seat"], "Obo": ["Hand","Palm"] },
-  greetings: { "Hello": ["Bodia e"],"Hi": ["Bodia e"],"Good morning": ["Aisan"],"Good afternoon": ["Khara"],"Good evening": ["Khara"],"Good night": ["Okin ewie"],"Goodbye": ["Okinbue"],"Please": ["Huean"],"Thank you": ["Obuku"],"You are welcome": ["~"],"Excuse me": ["~"],"Im sorry": ["Ote"],"Yes": ["Eh He"],"No": ["Eh Ye"],"Maybe": ["Egheso"],"I dont know": ["Men bha len"],"Do you speak [language]?": ["We ze [uro]?"],"I dont understand": ["O bha mu men elo kuere"],"What is your name?": ["Bati elin e?"],"My name is...": ["Atie men"]},
-  colors: { "Rojo": ["Red"], "Azul": ["Blue"], "Verde": ["Green"] },
-  animals: { "Perro": ["Dog"], "Gato": ["Cat"], "Pájaro": ["Bird"] },
+  greetings: { "Hello": ["Bodia e"],"Hi": ["Bodia e"],"Good morning": ["Aisan"],"Good afternoon": ["Khara"],"Good evening": ["Khara"],"Good night": ["Okin ewie"],"Goodbye": ["Okinbue"],"Please": ["Huean"],"Thank you": ["Obuku"],"You are welcome": ["~"],"Excuse me": ["~"],"Im sorry": ["Ote"],"Yes": ["Eh He"],"No": ["Eh Ye"],"Maybe": ["Egheso"],"I dont know": ["Men bha len"],"Do you speak [language]?": ["We ze [uro]?"],"I dont understand": ["O bha mu men elo kuere"],"What is your name?": ["Bati elin e?"],"My name is...": ["Atie men"] },
+  descriptions: { "Big": ["Udede"],"Small": ["Khere"],"Hot": ["Ebekhua"],"Cold": ["Ebefuofua"],"Fast": ["Tuq-Mhin"],"Slow": ["Kike"],"Good": ["O  meen"],"Bad": ["Kholo mhin"],"New": ["Osogbon"],"Old": ["Fafa"],"Happy": ["Eghonghon"],"Sad": ["Onon ighonghon"],"Easy": ["Lekhe"],"Hard": ["Kaka-mhin"],"Beautiful": ["Meose"],"Funny": ["Ojie"],"Tall": ["Taan"],"Small amount ": ["Obhi ?khere"],"bigger": ["mama udede"],"fat": ["Konkon"],"tiny": ["ikwe'kwi"],"serious": ["Kaka mhin"],"tiresome": ["O khanlan"]},
+  animals: { "Alligator": ["agbaka"],"Ant": ["Abibi"],"Antelope": ["Uzo"],"Bat": ["Akogan"],"Bird": ["afianmhen"],"Butterfly": ["Akpakpa"],"Cat": ["onogbo"],"Chameleon": ["Alokhin"],"Chicken": ["?kh?"],"Chimpanzee": ["Osa"],"Cobra": ["Ebi"],"Crab": ["Ozi"],"Cricket": ["osen"],"Crocodile": ["agbaka"],"Deer": ["uzo"],"Dog": ["áwà"],"Earthworm": ["Ahulu"],"Elephant": ["Eni"],"Fly": ["i?khi??n"],"Frog": ["akil?"],"Goat": ["?bhe"],"Grasshopper": ["Ugbaf?n"],"Hawk": ["Ahi?nl?nkp?n"],"Horse": ["Akasi"],"Leopard": ["Atanakpa"],"Lion": ["Oduma"],"Monkey": ["emenlen"],"Pig": ["Esi"],"Porcupine": ["Qkhaen"],"Rabbit": ["Èluo"],"Rat": ["Of?n"],"Rooster": ["??kpà"],"Scorpion": ["Akpin(N)"],"Shark": ["Agbaka(N)"],"Sheep": ["Ohuan"],"Snake": ["?y?n"],"Sponge": ["Ihi?n"],"Squirrel": ["?tan"],"Tiger": ["Atanakpa"],"Tick": ["Arue"],"Tortoise": ["ewi"],"Turtle": ["ewi"],"Vulture": ["Udene"],"Woodpecker": ["?kpokporan"] },
   food: { "Pan": ["Bread"], "Agua": ["Water"], "Manzana": ["Apple"] },
-  verbs_basic: { "Ser": ["To be"], "Tener": ["To have"], "Querer": ["To want"] },
-  verbs_travel: { "Viajar": ["To travel"], "Llegar": ["To arrive"], "Salir": ["To leave"] },
-  phrases: { "¿Cómo estás?": ["How are you?"], "Lo siento": ["I'm sorry"], "Por favor": ["Please"] },
-  questions: { "¿Qué?": ["What?"], "¿Dónde?": ["Where?"], "¿Cuándo?": ["When?"] },
-  time: { "Hoy": ["Today"], "Mañana": ["Tomorrow"], "Ayer": ["Yesterday"] },
-  days_months: { "Lunes": ["Monday"], "Martes": ["Tuesday"], "Enero": ["January"] },
+  verbs_basic: { "To live": ["Dia"],"To die": ["Dokin"],"To sleep": ["Wele"],"To wake up": ["Re obowe"],"To run": ["Riune"],"To walk": ["Tete khian"],"To sit": ["Dotua"],"To stand": ["Gbano"],"To open": ["Tuje"],"To close": ["Khue"],"To read": ["Tie"],"To write": ["Ogbemi"],"To listen": ["Re eho"],"To talk": ["Talow"],"To call (phone)": ["Atie"],"To think": ["Eria"],"To remember": ["Yere"],"To forget": ["Bha yere"],"To wait": ["Modia"],"To help": ["Urekpa"],"To Accept": ["Mien"],"To Admit": ["Mienkue"],"To Agree": ["Aka"],"To Argue": ["Khon"],"To Arrive": ["Re se"],"To Ask": ["Ni"],"To assist": ["Nemhen"],"To be": ["aye"],"To begin": ["Da"],"To bought": ["ude"],"To build": ["bo"],"To build": ["la bon"],"To buy": ["de"],"To Call": ["Atie"],"To Arrive": ["Vae"],"To Come": ["Va de"],"To Care": ["Gbe"],"To Carried": ["Mu"],"To Catch": ["muen"],"To Choose": ["Ze"],"To Wash": ["Gbe"],"To Clean": ["Gbe"],"To Clean Clothes": ["Bolia"],"To complain": ["gui"],"To cook": ["nien"],"To cut": ["hian"],"To die": ["Yuu"],"To do": ["lu"],"To Eat": ["Le"],"To feel": ["fure"],"To Fight": ["Okhonlen"],"To find": ["Mienrie"],"To finish": ["fo"],"To follow": ["Deso"],"To forget": ["Ye"],"To Give": ["Re"],"To get": ["Ne"],"To go": ["Khian"],"To Went": ["Khian"],"To grew": ["Wanre"],"To had": ["mhon"],"To kill": ["gbe"],"To know": ["leen"],"To lead": ["oze"],"To learn": ["Lue"],"To leave": ["Khian"],"To left": ["sibi"],"To listen": ["hon"],"To look": ["ghe"],"To love": ["ihoemoegbe"],"To loves": ["hoemen"],"To make": ["waa"],"To open": ["Tuje"],"To protect": ["Odije"],"To reach": ["Sele"],"To receive": ["mien"],"To remain": ["Kere"],"To research": ["Tie"],"To respect": ["Ekpen"],"To return": ["Vae"],"To say": ["ta"],"To say": ["talow"],"To see": ["da ghe"],"To sell": ["khien"],"To send": ["Jie"],"To send": ["Ne"],"To serve": ["Ga"],"To sit": ["d'otua"],"To sleep": ["Wele"],"To speak": ["Talow"],"To spend": ["ria"],"To stand": ["gbano"],"To stay": ["dia"],"To stop": ["mundian"],"To stop": ["modia"],"To Take": ["Mien"],"To tell": ["Tama"],"To thank": ["obulu"],"To think": ["ria"],"To try": ["obo men dale"],"To understand": ["O mu men elo khuere"],"To use": ["Noo"],"To visit": ["Fe"],"To wait": ["Modia"],"To Walk": ["Tete Khian"],"To want": ["gwano"],"To Went": ["Yo"],"To work": ["iwenna"],"To Find": ["Mi"],"To able": ["ki da"] },
+  verbs_travel: { "Tired": ["Loe"],"Hungry": ["Ohame"],"Thirsty": ["Ohame"],"Sick": ["Ekhumun"],"Hot (feeling)": ["Ebekhua"],"Cold (feeling)": ["Ebefuofua"],"Scared": ["~"],"Angry": ["Osobhalo"],"Bored": ["~"],"Excited": ["Eghonghon"] },
+  nouns: { "Man": ["Okpea"],"Woman": ["Okhuo"],"Child": ["Omon"],"Friend": ["Onuele"],"Family": ["Ibokhan"],"House": ["Uwa"],"Car": ["Imotto"],"Work": ["Iwena"],"School": ["Uwebe"],"Water": ["Amen"],"Food": ["Ebale"],"Money": ["Igho"],"Time": ["Eghe"],"Day": ["Ede"],"Night": ["Ason"] },
+  questions: { "Who?": ["Khona?"],"What?": ["Ebela?"],"Where?": ["Je?"],"When?": ["Eghe la?"],"Why?": ["Bezele?"],"How?": ["Oni?"],"How much?": ["Eka?"],"How many?": ["Eka la?"],"Which?": ["Onia?"],"What does this mean?": ["Buwe roni ta?"]},
+  time: { "Morning": ["Ewie"],"Afternoon": ["Odanmen"],"Evening": ["Emuan"],"Night": ["Ason"],"Today": ["Elena"],"Tomorrow": ["Akho"],"Yesterday": ["Inode"],"Now": ["Nia"],"Later": ["Muegbe"],"Early": ["~"],"Late": ["~"],"Always": ["Egherebhe"],"Never": ["~"],"Sometimes": ["Egheso"],"Often": ["~"],"Usually": ["~"],"Breakfast": ["~"],"Lunch": ["~"],"Dinner": ["~"],"Snack": ["~"]},
+  commomverbs: { "To be": ["Khin"],"To have": ["Mhon"],"To go": ["Akhian"],"To come": ["Vae"],"To eat": ["lebae"],"To drink": ["Moi"],"To see": ["Da ghe"],"To hear": ["Hon"],"To say": ["Ota"],"To do": ["Lu"],"To make": ["Waa"],"To want": ["Gwano"],"To know": ["Len"],"To like": ["Oye"],"To need": ["Khonu"] },
   family: { "Madre": ["Mother"], "Padre": ["Father"], "Hermano": ["Brother"] },
-  directions: { "Izquierda": ["Left"], "Derecha": ["Right"], "Recto": ["Straight"] },
+  directions: { "In": ["Bhi/Ri bi"],"On": ["Bhi/Ri bi"],"At": ["Bhi/Ri bi"],"Under": ["Otole"],"Over": ["~"],"With": ["Deba"],"Without": ["~"],"Before": ["Ka"],"After": ["Okue gbe rha"],"Because": ["Ramude"],"And": ["Bi"],"Or": ["La"],"But": ["Sokpan"],"If": ["Kha"],"Then": ["~"]},
   clothing: { "Camisa": ["Shirt"], "Pantalones": ["Pants"], "Zapatos": ["Shoes"] },
   weather: { "Lluvia": ["Rain"], "Nieve": ["Snow"], "Viento": ["Wind"] },
-  body: { "Cabeza": ["Head"], "Mano": ["Hand"], "Pie": ["Foot"] },
-  school: { "Escuela": ["School"], "Libro": ["Book"], "Maestro": ["Teacher"] }
+  body: { "Head": ["Uhonmon"],"Hair": ["Eto"],"Face": ["Elolo"],"Eye": ["Elo"],"Hair": ["Eto"],"Nose": ["Ihue"],"Mouth": ["Unun"],"Hand": ["Obo"],"Foot": ["Oe"],"Leg": ["Oe"],"Armpit": ["Elihele"],"butt": ["uwedin"],"cheek": ["iro"],"Elbow": ["Egogo obor"],"eyelashes": ["ihuenlo"],"Finger": ["Ikpianb?"],"Finger Nail": ["ihieonbo"],"Finger Nails": ["Ehienlen"],"Knee": ["ugogo"],"Neck": ["Uru"],"Shoulder": ["ijianb?"],"Stomach": ["?k?"],"Tooth": ["akon"],"Toe": ["ikpianw?"],"Waist": ["?kun"],"Wrist": ["Akhu"]},
+  school: { "Home": ["Uwa"],"School": ["Uwa ebe"],"Work": ["Iwenna"],"Office": ["Ioffice"],"Store": ["Eki"],"Restaurant": ["Irestaurant"],"Market": ["Eki"],"Hospital": ["Uwa ukhumun"],"Bank": ["Aza"],"Airport": ["~"]}
 };
 
-/* ---------- Storage + migration from very old keys ---------- */
+/* ---------- Data Versioning (BUMP THIS date to the lastest date when you change seeds/categories) ---------- */
+const DATA_VERSION = '2025-08-16-a';
+const VERSION_KEY = 'lingo_words_version';
+
+/* ---------- Storage + migration from very old keys ----------- */
 (function migrateOld(){
   const oldNums = load("lingo_numbers");
   const oldOth  = load("lingo_others");
@@ -278,6 +284,14 @@ const SEED = {
     localStorage.removeItem("lingo_others");
   }
 })();
+
+/* NEW: If version changed, overwrite saved words with SEED from code */
+const savedVersion = localStorage.getItem(VERSION_KEY);
+if (savedVersion !== DATA_VERSION) {
+  save(LS.words, SEED);
+  localStorage.setItem(VERSION_KEY, DATA_VERSION);
+}
+
 let WORDS = load(LS.words, SEED);
 CATS.forEach(c=>{ if(!WORDS[c]) WORDS[c]={}; });
 save(LS.words, WORDS);
@@ -309,6 +323,17 @@ unlimitedToggle.onchange = ()=>{ UNLIMITED = unlimitedToggle.checked; localStora
 $("#btnHPlus1").onclick = ()=>{ META.hearts = Math.min(99, META.hearts+1); save(LS.meta,META); updateBadges(); sfxCorrect(); };
 $("#btnHPlus5").onclick = ()=>{ META.hearts = Math.min(99, META.hearts+5); save(LS.meta,META); updateBadges(); sfxCorrect(); };
 $("#btnHRefill").onclick = ()=>{ META.hearts = Math.max(META.hearts,5); save(LS.meta,META); updateBadges(); sfxCorrect(); };
+
+/* RESET DATA BUTTON */
+$("#resetDataBtn").onclick = () => {
+  if (!confirm("Reset saved words, XP/hearts/streak, and missed list?")) return;
+  localStorage.removeItem(LS.words);
+  localStorage.removeItem(LS.meta);
+  localStorage.removeItem(LS.missed);
+  localStorage.setItem(VERSION_KEY, DATA_VERSION); // lock to current code version
+  save(LS.words, SEED); // restore from code
+  location.reload();
+};
 
 /* ---------- Fill dynamic category dropdowns ---------- */
 function fillCategorySelects(){
@@ -421,6 +446,7 @@ function makeChallengeFrom(cur, meanings, type, direction, catLabel){
 }
 
 function renderChallenge(ch){
+  CURRENT = ch;
   $("#prompt").textContent = ch.prompt;
   $("#mcWrap").classList.add("hidden"); $("#orderWrap").classList.add("hidden");
   if(ch.type==="mc"){
@@ -479,8 +505,7 @@ function nextChallenge(){
   }
   const cur=s.remaining[0];
   const meanings = WORDS[cur.cat][cur.key];
-  CURRENT = makeChallengeFrom(cur, meanings, s.mode, s.dir, s.cat);
-  renderChallenge(CURRENT);
+  renderChallenge(makeChallengeFrom(cur, meanings, s.mode, s.dir, s.cat));
 }
 function updateProgressNote(){
   const s=state.session; if(!s){ $("#progressNote").textContent=""; return; }
