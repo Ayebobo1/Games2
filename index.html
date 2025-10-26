@@ -1,10 +1,9 @@
-﻿﻿
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Lingo Dictionary — Duolingo-style (Flash MC Feedback)</title>
+    <title>Lingo Dictionary — Duolingo-style (MC + Word Bank + Fill-in)</title>
     <style>
         :root {
             --bg: #0b1220;
@@ -46,7 +45,7 @@
             border: 1px solid var(--line);
             border-radius: 16px;
             padding: 16px 16px 0;
-            margin-bottom: 12px;
+            margin-bottom: 12px
         }
 
         .title {
@@ -56,7 +55,7 @@
             background: linear-gradient(90deg,var(--accent2),var(--accent1));
             -webkit-background-clip: text;
             background-clip: text;
-            color: transparent;
+            color: transparent
         }
 
         .tabs {
@@ -87,7 +86,7 @@
             border-top: none;
             background: var(--panel);
             padding: 16px;
-            border-radius: 0 12px 12px 12px;
+            border-radius: 0 12px 12px 12px
         }
 
         .row {
@@ -103,7 +102,7 @@
             border-radius: 10px;
             padding: 10px 12px;
             outline: none;
-            width: 100%;
+            width: 100%
         }
 
         .btn {
@@ -209,9 +208,9 @@
         .hidden {
             display: none !important
         }
-        /* overlays can't intercept when hidden */
+
         .toast.hidden, .modal.hidden {
-            pointer-events: none !important;
+            pointer-events: none !important
         }
 
         .center {
@@ -227,8 +226,7 @@
                 font-size: 20px
             }
         }
-
-        /* === Multiple-choice buttons + flash feedback === */
+        /* MC buttons + flash */
         .answerChoice {
             width: 100%;
             text-align: left;
@@ -238,11 +236,11 @@
             padding: 12px;
             border-radius: 12px;
             cursor: pointer;
-            transition: background-color .25s ease, transform .05s ease, outline-color .25s ease;
+            transition: background-color .25s ease,transform .05s ease,outline-color .25s ease
         }
 
             .answerChoice:active {
-                transform: scale(0.98);
+                transform: scale(0.98)
             }
 
             .answerChoice.correct {
@@ -301,7 +299,7 @@
             border: 1px solid var(--line);
             border-radius: 16px;
             padding: 16px;
-            width: min(560px, 94%);
+            width: min(560px,94%);
             box-shadow: 0 20px 60px rgba(0,0,0,.35)
         }
 
@@ -314,7 +312,7 @@
         }
 
         .mute {
-            margin-left: 6px;
+            margin-left: 6px
         }
 
         .reviewRow {
@@ -347,7 +345,6 @@
                     <label style="margin-left:6px">Unlimited <input id="unlimitedToggle" type="checkbox" /></label>
                 </span>
                 <button id="helpBtn" class="btn ghost" type="button">Controls</button>
-                <!-- Reset Data button -->
                 <button id="resetDataBtn" class="btn ghost" type="button" title="Wipe saved words & reload from code">Reset Data</button>
             </div>
             <div class="tabs">
@@ -381,6 +378,7 @@
                     <select id="modeSel">
                         <option value="mc">Multiple Choice</option>
                         <option value="order">Word Bank (order)</option>
+                        <option value="fill">Fill in the Blank</option>
                     </select>
                 </div>
                 <div class="pill">
@@ -399,7 +397,11 @@
 
             <div id="challengeArea" class="card" style="margin-top:12px; display:none">
                 <div id="prompt" class="big" style="margin-bottom:10px;"></div>
+
+                <!-- Multiple choice -->
                 <div id="mcWrap" class="grid hidden" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
+
+                <!-- Word bank (order) -->
                 <div id="orderWrap" class="hidden">
                     <div class="bank" id="bank"></div>
                     <div style="margin-top:8px" class="bank" id="answerBank"></div>
@@ -407,6 +409,15 @@
                         <button id="clearOrder" class="btn" type="button">Clear</button>
                         <button id="submitOrder" class="btn primary" type="button">Submit</button>
                     </div>
+                </div>
+
+                <!-- Fill in the blank -->
+                <div id="fillWrap" class="hidden">
+                    <div class="row">
+                        <input id="fillInput" type="text" placeholder="Type your answer…" />
+                        <button id="submitFill" class="btn primary" type="button">Submit</button>
+                    </div>
+                    <div id="fillHint" class="muted" style="margin-top:6px; display:none"></div>
                 </div>
             </div>
         </section>
@@ -484,463 +495,505 @@
     </div>
 
     <script>
-'use strict';
-/* Wait for DOM */
-window.addEventListener('DOMContentLoaded', () => {
-/* ---------- Helpers ---------- */
-const $  = (s, r=document)=>r.querySelector(s);
-const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const toastEl = $("#toast");
-const LS = {
-  words: "lingo_words_v2",
-  meta:  "lingo_meta",
-  mute:  "lingo_mute",
-  missed:"lingo_missed_v2",
-  unlimited:"lingo_unlimited"
-};
-const load = (k,d=null)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } };
-const save = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
-function toast(m){ toastEl.textContent=m; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t=setTimeout(()=>toastEl.classList.add("hidden"),1400); }
-function shuffle(a){ const x=a.slice(); for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]} return x; }
-function pickDistractors(list, correct, n){ const pool=list.filter(x=>x!==correct), out=[]; while(out.length<n&&pool.length){ out.push(...pool.splice(Math.random()*pool.length|0,1)); } return out.slice(0,n); }
-function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+        'use strict';
+        window.addEventListener('DOMContentLoaded', () => {
+            /* ---------- Helpers ---------- */
+            const $ = (s, r = document) => r.querySelector(s);
+            const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+            const toastEl = $("#toast");
+            const LS = {
+                words: "lingo_words_v2",
+                meta: "lingo_meta",
+                mute: "lingo_mute",
+                missed: "lingo_missed_v2",
+                unlimited: "lingo_unlimited"
+            };
+            const load = (k, d = null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+            const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+            function toast(m) { toastEl.textContent = m; toastEl.classList.remove("hidden"); clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.classList.add("hidden"), 1400); }
+            function shuffle(a) { const x = a.slice(); for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[x[i], x[j]] = [x[j], x[i]] } return x; }
+            function pickDistractors(list, correct, n) { const pool = list.filter(x => x !== correct), out = []; while (out.length < n && pool.length) { out.push(...pool.splice(Math.random() * pool.length | 0, 1)); } return out.slice(0, n); }
+            function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", "&gt;": "&gt;", "\"": "&quot;", "'": "&#39;" }[c])); }
+            function norm(s) { return s.toLowerCase().replace(/\s+/g, " ").trim(); }
 
-/* ---------- Sounds ---------- */
-let AC, muted = localStorage.getItem(LS.mute)==="1";
-const muteToggle = $("#muteToggle"); muteToggle.checked=muted;
-muteToggle.onchange=()=>{ muted=muteToggle.checked; localStorage.setItem(LS.mute, muted?"1":"0"); };
-function ensureAC(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); }
-function beep(f=880,d=.12,t='sine',g=.2){ if(muted) return; ensureAC(); const o=AC.createOscillator(),k=AC.createGain(); o.type=t;o.frequency.value=f;k.gain.value=0;o.connect(k).connect(AC.destination);o.start();k.gain.setTargetAtTime(g,AC.currentTime,.01);k.gain.setTargetAtTime(0,AC.currentTime+d*.8,.03);o.stop(AC.currentTime+d); }
-function chord(F=[523,659,784],d=.35,t='sine',g=.15){ if(muted) return; ensureAC(); const k=AC.createGain();k.gain.value=0;k.connect(AC.destination);k.gain.setTargetAtTime(g,AC.currentTime,.01);const now=AC.currentTime;F.forEach(f=>{const o=AC.createOscillator();o.type=t;o.frequency.value=f;o.connect(k);o.start(now);o.stop(now+d)});k.gain.setTargetAtTime(0,now+d*.8,.04); }
-const sfxCorrect=()=>{beep(880,.09,'triangle',.18);setTimeout(()=>beep(1175,.09,'triangle',.16),110)};
-const sfxWrong=()=>{beep(220,.15,'sawtooth',.18);setTimeout(()=>beep(180,.12,'sawtooth',.16),120)};
-const sfxComplete=()=>{chord([523,659,784],.35);setTimeout(()=>chord([659,784,988],.35),380)};
+            /* ---------- Sounds ---------- */
+            let AC, muted = localStorage.getItem(LS.mute) === "1";
+            const muteToggle = $("#muteToggle"); muteToggle.checked = muted;
+            muteToggle.onchange = () => { muted = muteToggle.checked; localStorage.setItem(LS.mute, muted ? "1" : "0"); };
+            function ensureAC() { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }
+            function beep(f = 880, d = .12, t = 'sine', g = .2) { if (muted) return; ensureAC(); const o = AC.createOscillator(), k = AC.createGain(); o.type = t; o.frequency.value = f; k.gain.value = 0; o.connect(k).connect(AC.destination); o.start(); k.gain.setTargetAtTime(g, AC.currentTime, .01); k.gain.setTargetAtTime(0, AC.currentTime + d * .8, .03); o.stop(AC.currentTime + d); }
+            function chord(F = [523, 659, 784], d = .35, t = 'sine', g = .15) { if (muted) return; ensureAC(); const k = AC.createGain(); k.gain.value = 0; k.connect(AC.destination); k.gain.setTargetAtTime(g, AC.currentTime, .01); const now = AC.currentTime; F.forEach(f => { const o = AC.createOscillator(); o.type = t; o.frequency.value = f; o.connect(k); o.start(now); o.stop(now + d) }); k.gain.setTargetAtTime(0, now + d * .8, .04); }
+            const sfxCorrect = () => { beep(880, .09, 'triangle', .18); setTimeout(() => beep(1175, .09, 'triangle', .16), 110) };
+            const sfxWrong = () => { beep(220, .15, 'sawtooth', .18); setTimeout(() => beep(180, .12, 'sawtooth', .16), 120) };
+            const sfxComplete = () => { chord([523, 659, 784], .35); setTimeout(() => chord([659, 784, 988], .35), 380) };
 
-/* ---------- Categories + seed (18 total) ---------- */
-const CATS = [
-  "numbers","others","greetings","descriptions","animals","food","verbs_basic","verbs_travel",
-  "nouna","questions","time","commonverbs","family","directions","clothing",
-  "weather","body","school"
-];
-const SEED = {
-  numbers: { "1": ["Ọkpa"],"2": ["Eva"],"3": ["Ea"],"4": ["Enen"],"5": ["Isen"],"6": ["Ehan"],"7": ["Ihinlọn"],"8": ["Elenlen"],"9": ["Isilin"],"10": ["Igbe"],"11": ["Ugbọlọ"],"12": ["Igbeva"],"12": ["Iyisen bi Elenlen yan Ujie"],"14": ["Igbenen"],"15": ["Isen iyan igbe"],"15": ["Iyisen bi igbe yan ẹgbọ"],"16": ["Ehan yan igbe"],"16": ["Iyisen bi Isilin yan ẹgbọ"],"17": ["Ihinlọn yan igbe"],"18": ["Elenlen yan igbe"],"19": ["Isilin yan igbe"],"19": ["Iyisen bi igbe yan ẹgbọ"],"20": ["Ujie"],"21": ["Ọkpa yan Ujie"],"22": ["Eva yan Ujie"],"23": ["Ea yan Ujie"],"24": ["Enen yan Ujie"],"25": ["Isen yan Ujie"],"26": ["Ehan yan Ujie"],"27": ["Ihinlọn yan Ujie"],"28": ["Elenlen yan Ujie"],"29": ["Isilin yan Ujie"],"30": ["Ọgban"],"30": ["Ọgban"],"31": ["Ọkpa yan ọgban"],"32": ["Eva yan ọgban"],"33": ["Ea yan ọgban"],"34": ["Enen yan ọgban"],"35": ["Isen yan ọgban"],"36": ["Ehan yan ọgban"],"37": ["Ihinlọn yan ọgban"],"38": ["Elenlen yan ọgban"],"39": ["Isilin yan ọgban"],"40": ["Egbo eva"],"40": ["Ẹgbọ Eva"],"41": ["Ọkpa yan ẹgbọ Eva"],"42": ["Eva yan ẹgbọ Eva"],"43": ["Ea yan ẹgbọ Eva"],"44": ["Enen yan ẹgbọ Eva"],"45": ["Isen yan ẹgbọ Eva"],"46": ["Ehan yan ẹgbọ Eva"],"47": ["Ihinlọn yan ẹgbọ Eva"],"48": ["Elenlen yan ẹgbọ Eva"],"49": ["Isilin yan ẹgbọ Eva"],"50": ["Igbe yan egbo eva"],"50": ["Igbe yan ẹgbọ eva(la ẹgbọ Eva bi ukhiọmhen)"],"51": ["Ugbọlọ yan ẹgbọ eva"],"52": ["Igbeva yan ẹgbọ Eva"],"53": ["Igbea yan ẹgbọ eva"],"54": ["Igbenen yan ẹgbọ eva"],"55": ["Isen iribhi Iyeha(la Isen iribhi ẹgbọ Ea)"],"56": ["Enen iribhi ẹgbọ Ea"],"57": ["Ea iribhi ẹgbọ Ea"],"58": ["Eva iribhi ẹgbọ Ea"],"59": ["Ọkpa iribhi ẹgbọ Ea"],"60": ["Iyeha"],"60": ["Iyeha (la ẹgbọ Ea)"],"61": ["Ọkpa yan iyeha(LA Ọkpa yan ẹgbọ Ea)"],"62": ["Eva yan iyeha"],"63": ["Ea yan iyeha"],"64": ["Enen yan iyeha"],"65": ["Isen yan iyeha"],"66": ["Ehan yan iyeha"],"67": ["Ihinlọn yan iyeha"],"68": ["Elenlen yan iyeha"],"69": ["Isilin yan iyeha"],"70": ["Igbe yan iyeha"],"70": ["Igbe yan iyeha"],"71": ["Ugbọlọ yan iyeha"],"72": ["Igbeva yan iyeha"],"73": ["Igbea yan iyeha"],"74": ["Igbenen yan iyeha"],"75": ["Isen iribhi Iyenen(Isen iribhi ẹgbọ Enen)"],"76": ["Enen iribhi Iyenen"],"77": ["Ea iribhi Iyenen"],"78": ["Eva iribhi iyenen"],"79": ["Ọkpa iribhi iyenen"],"80": ["Egbo eva bhe ejalen eva"],"80": ["Iyenen(ẹgbọ Enen)"],"81": ["Ọkpa yan ẹgbọ Enen(Ọkpa yan Iyenen)"],"82": ["Eva yan Iyenen"],"83": ["Ea yan Iyenen"],"84": ["Enen yan Iyenen"],"85": ["Isen yan Iyenen"],"86": ["Ehan yan Iyenen"],"87": ["Ihinlọn yan Iyenen"],"88": ["Elenlen yan Iyenen"],"89": ["Isilin yan Iyenen"],"90": ["Igbe ii ribhi iyisẹn"],"90": ["Igbe yan Iyenen"],"91": ["Ugbọlọ yan Iyenen"],"92": ["Igbeva yan Iyenen"],"93": ["Igbea yan Iyenen"],"94": ["Igbenen yan Iyenen"],"95": ["Isen iribhi Iyisen"],"96": ["Enen iribhi Iyisen"],"97": ["Ea iribhi Iyisen"],"98": ["Eva iribhi Iyisen"],"99": ["Ọkpa iribhi Iyisen"],"100": ["Iyisẹn"],"100": ["Iyisen(Ẹgbọ Isen)"],"101": ["Ọkpa yan Iyisen"],"102": ["eva yan Iyisen"],"103": ["Ea yan Iyisen"],"104": ["Enen yan Iyisen"],"105": ["Isen yan Iyisen"],"106": ["Ehan yan Iyisen"],"107": ["Ihinlọn yan Iyisen"],"108": ["Elenlen yan Iyisen"],"109": ["Isilin yan Iyisen"],"110": ["Igbe yan Iyisen"],"111": ["ugbọlọ yan Iyisen"],"112": ["Igbeva yan Iyisen"],"113": ["Igbea yan Iyisen"],"114": ["Igbenen yan Iyisen"],"115": ["Iyisen bi Isen yan igbe"],"116": ["Iyisen bi Ehan yan igbe (Igbehan yan Iyisen)"],"117": ["igbe Ihinlọn yan Iyisen(Iyisen bi Ihinlọn yan igbe)"],"118": ["Iyisen bi Elenlen yan igbe"],"119": ["Iyisen bi Isilin yan igbe"],"120": ["uje yan Iyisen (Iyisen bi Ujie)"],"121": ["Iyisen bi Ọkpa yan Ujie"],"122": ["Iyisen bi eva yan Ujie"],"123": ["Iyisen bi Ea yan Ujie"],"124": ["Iyisen bi Enen yan Ujie"],"125": ["Iyisen bi Isen yan Ujie"],"126": ["Iyisen bi Ehan yan Ujie"],"127": ["Iyisen bi Ihinlọn yan Ujie"],"129": ["Iyisen bi Isilin yan Ujie"],"130": ["Iyisen bi ọgban (ọgban yan Iyisen)"],"131": ["Iyisen bi Ọkpa yan ọgban"],"132": ["Iyisen bi EVA YAN ọgban"],"133": ["Iyisen bi Ea yan ọgban"],"134": ["Iyisen bi Enen yan ọgban"],"135": ["Iyisen bi Isen yan ọgban"],"136": ["Iyisen bi Ehan yan ọgban"],"137": ["Iyisen bi Ihinlọn yan ọgban"],"138": ["Iyisen bi Elenlen yan ọgban"],"139": ["Iyisen bi Isilin yan ọgban"],"140": ["Ẹgbọ"],"141": ["Iyisen bi Ọkpa yan ẹgbo"],"142": ["Iyisen bi eva yan ẹgbọ"],"143": ["Iyisen bi Ea yan ẹgbọ"],"144": ["Iyisen bi Enen yan ẹgbọ"],"145": ["Iyisen bi Enen yan ẹgbọ"],"146": ["Iyisen bi Ehan yan ẹgbọ"],"147": ["Iyisen bi Ihinlọn yan ẹgbọ"],"148": ["Iyisen bi Elenlen yan ẹgbọ"],"149": ["Iyisen bi Isilin yan ẹgbo"],"151": ["Iyisen bi Ugbọlọ yan ẹgbọ"],"152": ["Iyisen bi Igbeva yan ẹgbọ"],"153": ["Iyisen bi Igbea yan ẹgbọ"],"154": ["Iyisen bi Igbenen yan ẹgbọ"],"155": ["Iyisen bi Isen iribhi ẹgbọ"],"156": ["Iyisen bi Enen iribhi ẹgbọ"],"157": ["Iyisen bi Ea iribhi ẹgbọ"],"158": ["Iyisen bi eva iribhi ẹgbọ"],"159": ["Iyisen bi Ọkpa iribhi ẹgbọ"],"160": ["Iyisen bi ẹgbọ"],"161": ["Iyisen bi Ọkpa yan ẹgbọ"],"162": ["Iyisen bi eva yan ẹgbọ"],"163": ["Iyisen bi ea yan ẹgbọ"],"164": ["Iyisen bi Enen yan ẹgbọ"],"165": ["Iyisen bi Isen yan ẹgbọ"],"166": ["Iyisen bi Ehan yan ẹgbọ"],"167": ["Iyisen bi Ihinlọn yan ẹgbọ"],"168": ["Iyisen bi Elenlen yan ẹgbọ"],"170": ["Iyisen bi igbe yan ẹgbọ"],"171": ["Iyisen bi Ugbọlọ yan ẹgbọ"],"172": ["Iyisen bi Igbeva yan ẹgbọ"],"173": ["Iyisen bi Igbea yan ẹgbọ"],"174": ["Iyisen bi Igbenen yan ẹgbọ"],"175": ["Iyisen bi Isen iribhi ẹgbọ"],"176": ["Iyisen bi Enen iribhi ẹgbọ"],"177": ["Iyisen bi ea iribhi ẹgbọ"],"178": ["Iyisen bi eva iribhi ẹgbọ"],"179": ["Iyisen bi Ọkpa iribhi ẹgbọ"],"180": ["Iyisen bi ẹgbọ"],"181": ["Iyisen bi Ọkpa yan ẹgbọ"],"182": ["Iyisen bi eva yan ẹgbọ"],"183": ["Iyisen bi ea yan ẹgbọ"],"184": ["Iyisen bi Enen yan ẹgbọ"],"185": ["Iyisen bi Isen yan ẹgbọ"],"186": ["Iyisen bi Ehan yan ẹgbọ"],"187": ["Iyisen bi Ihinlọn yan ẹgbọ"],"188": ["Iyisen bi Elenlen yan ẹgbọ"],"189": ["Iyisen bi Isilin yan ẹgbọ Enen"],"191": ["Iyisen bi Ugbọlọ yan ẹgbọ"],"192": ["Iyisen bi Igbeva yan ẹgbọ"],"193": ["Iyisen bi Igbea yan ẹgbọ"],"194": ["Iyisen bi Igbenen yan ẹgbọ"],"195": ["Iyisen bi Isen iribhi Iyisen"],"196": ["Iyisen bi Enen iribhi iyisen"],"197": ["Iyisen bi ea iribhi iyisen"],"198": ["Iyisen bi eva iribhi iyisen"],"199": ["Iyisen bi Ọkpa iribhi iyisen"],"200": ["Iyisẹnejenlaeva - 200"],"200": ["iyisen"],"200": ["iyisen"],"1000": ["Ẹkpa igbe"],"2000": ["Ẹkpa ujie"],"10000": ["Uli Igbe"],"20000": ["Uli Ujie"],"30000": ["Uli Ogban"],"40000": ["Uli egboeva"],"50000": ["Ugbe Igbe Yan Egboeva"],"60000": ["Uli Iyeha"],"70000": ["Uli Igbe Yan Iyeha"],"80000": ["Uli Iyenen"],"90000": ["Uli Igbe Yan Iyenen"],"100000": ["Uli iyisen"],"200000": ["Uli iyisen eva"],"300000": ["Uli iyisen ea"],"400000": ["Uli iyisen enen"],"500000": ["Uli iIyisen isen"],"600000": ["Uli iyisen ehan"],"700000": ["Uli iyisen ihilon"],"800000": ["Uli iyisen elenlen"],"900000": ["Uli iyisen isilin"],"1000000": ["Uli iyisen igbe"],"200000000": ["Ebo iyisen eva"],"300000000": ["Ebo iyisen ea"],"400000000": ["Ebo iyisen enen"],"500000000": ["Ebo iyisen isen"],"600000000": ["Ebo iyisen ehan"],"700000000": ["Ebo iyisen ihilon"],"800000000": ["Ebo iyisen elenlen"],"900000000": ["Ebo iyisen isilin"],"1000000000": ["Ebo iyisen igbe"]},
-  others:  { "How about you?": ["W? ki?"],"How are Esan Studies?": ["Oni Esan Studies Ki?"],"How are the children?": ["Eni Ibhokan?"],"How are the kids?": ["En ibhokhan ki?"],"How are you doing?": ["Bu w? ki khian y??"],"How are you feeling?": ["Egbe daan ??"],"How are you?": ["?n egbe?"],"How did Adesua get to school?": ["Ba Adesua r? s? bhi isiku?"],"How did Okojie fix the bike?": ["BOkojie r? d?ni ik?nk?n y??"],"How did you sleep?": ["W? w?le?"],"How does one fry plaintain?": ["Ba r? lanmon ?gh?d? y??"],"How is it?": ["Oni Ki"],"How is life treating you? (in your country of residence)": ["?n ?bho?"],"How is life?": ["?n agmon?"],"How is the family?": ["?n uwa?"],"How is work?": ["Iwenna ki?"],"How old is he/she?": ["Ekukpe ?le khin?"],"Okojie went to school however he forgot his books at home": ["Okojie yi isikulu ?kpa ki n?n ? yee ebe na s? bhu uwa"],"How do you say it": ["Buwe a re tale"],"How do you say it": ["Be uwe a re ota ole"],"How do you say": ["Buwe a re ta"],"How do you say many": ["Buwe a re tibumi"],"Show off": ["Agbagba 1N"],"Show Off": ["Shakara"],"How old are you": ["Ekupe? we? hi"],"How many years are you": ["Ekupe? we? hi"],"He/she/it knows how to swim": ["? gu? ?d?"],"How does one fry plaintain": ["Ba r? lanmon ?gh?d?"],"He/she/it knows how to swim": ["? gu? gua bh? ?d?"],"How do I get to?": ["Bime a re si?"],"How to I get to": ["Bime a re si"],"How is my father": ["?ni aba imen"],"How is my dad": ["?ni aba imen"],"How is my father": ["?nabamen"],"How is my dad": ["?nabamen"],"How do you?": ["Be uw? a re?"],"How do you": ["Be uw? a re"],"How will you?": ["Be uw? a re?"],"How will you": ["Be uw? a re"],"How do you?": ["Buw? a re?"],"How will you?": ["Buw? a re?"],"How do you?": ["Buw? a re"],"How will you?": ["Buw? a re"],"How do you say?": ["Buw? a re ta?"],"How do you say": ["Buw? a re ta"],"How do you say it?": ["Buw? a re ta ?le?"],"How do you say it": ["Buw? a re ta ?le"],"How do you say it?": ["Buw? a re tale?"],"How do you say it": ["Buw? a re tale"],"how long have you been here?": ["Bu ki se bue bhe ena"],"that’s how I see it": ["Irio men realele"],"Somehow": ["F?l? F?l?"],"How are you today?”": ["?negbe?”"],"How much?": ["Eka?"],"How much time is it?": ["Ekeghe a ye?"],"How old is he?": ["Ekukpe ?le khin?"],"How old is she?": ["Ekukpe ?le khin?"],"How old is it?": ["Ekukpe ?le khin?"],"How old is he?": ["Eke ukpe ?le khin?"],"How old is she?": ["Eke ukpe ?le khin?"],"How old is it?": ["Eke ukpe ?le khin?"],"How old is he?": ["Ekukpe ?le khin?"],"How old is she?": ["Ekukpe ?le khin?"],"How old is it?": ["Ekukpe ?le khin?"],"How many years?": ["Ekukpe?"],"How many years?": ["Eka ukpe?"],"How many years?": ["Ekukpe?"],"How old?": ["Ekukpe?"],"How old?": ["Eka ukpe?"],"How old?": ["Ekukpe?"],"How old?": ["Ekukpe"],"How old?": ["Eka ukpe"],"How old?": ["Ekukpe"],"How old are you?": ["Ekukpe uw? khin?"],"How old are you?": ["Ekuukpe uw? khin?"],"How old are you?": ["Eka ukpe uw? khin?"],"How old are you?": ["Ekukpe uw? khin"],"How old are you?": ["Ekuukpe uw? khin"],"How old are you?": ["Eka ukpe uw? khin"],"We doing how much for hands reach": ["Iman lu eka ni obo sele"],"How was your journey?": ["Onoshan nuwe shanen?"],"How was your journey": ["Onoshan nuwe shanen"],"How is your city?": ["Oni uhuonhbu uwede?"],"How is your city": ["Oni uhuonhbu uwede"],"How is you home?": ["Onuwa nonse?"],"How is you home": ["Onuwa nonse"],"How is your husband": ["Egbe dan ?d??"],"How is your husband?": ["Egbe dan ?d???"],"How are your children?": ["Eni bhokhan ne se egbe dan eh?"],"How are your children": ["Eni bhokhan ne se egbe dan eh"],"How is your entire family?": ["Egbe dan in ibhokhanbha rebhe?"],"How is your entire family": ["Egbe dan in ibhokhanbha rebhe"],"How is your family?": ["Egbe dan in ibhokhanbha?"],"How is your family": ["Egbe dan in ibhokhanbha"],"How much": ["Eka la"],"How many": ["Eka la"],"How are you": ["Bodia e"],"How is your father": ["Egbe Dan Aba"],"How's your father": ["Egbe Dan Aba"],"How are you": ["Egbe Dan"],"How is your mother": ["Egbe Dan Inen"],"How's your fmother": ["Egbe Dan Inen"],"How is your bother": ["Egbe Dan In Obioe nokpia"],"How is your sister": ["Egbe Dan In Obioe nokhuo"],"How did he do that": ["Ba Ole lu oni"],"How did she do that": ["Ba Ole lu oni"],"How did it do that": ["Ba Ole lu oni"],"How": ["Ba"],"How did he": ["Bole"],"How is your body": ["Onegbe fure"],"How is your body": ["Oni egbe fure"],"How is your body": ["Egbe fuwe re"],"How is your body": ["Egbe fuere"],"How old is he": ["Ekukpe ?le khin"],"How old is she": ["Ekukpe ?le khin"],"How old is it": ["Ekukpe ?le khin"],"How many people do you have tomorrow": ["Eka la agbon we bhon akho"],"How many people do you have tomorrow": ["Ekagbon we bhon akho"],"How many patients do you have tomorrow": ["Eknekhuun we bhon akho"],"How many sick people do you have tomorrow": ["Eknekhuun we bhon akho"],"How many people do you have": ["Eka la agbon we bhon"],"How many people do you have": ["Ekagbon we bhon"],"How many patients do you have": ["Eknekhuun we bhon"],"How many sick people do you have": ["Eknekhuun we bhon"],"how": ["Ebi"],"how": ["Ebi"],"How was your trip": ["Onuwede"],"How was your trip": ["Oni uwe ede"],"How did you": ["Be uwe a re"],"How did you learn that": ["Be uwe a re lue oni"],"How do you learn that": ["Be uwe a re lue oni"],"how did you sleep": ["We wele nosen"],"How is your wife": ["Oni Okhuo e"],"How is your wife": ["OnOkhuo e"],"How's your wife": ["Oni Okhuo e"],"How's your wife": ["OnOkhuo e"],"How is your family": ["Egbe dan ibhokhanbha"],"How are you doing": ["Bodia e"],"How is your mother": ["Egbe Dan Ine"],"How's your mother": ["Egbe Dan Ine"],"How is your father": ["Egbe Dan Aba"],"How's you father": ["Egbe Dan Aba"],"How is your brother": ["Egbe dan obioe nokpea"],"How's your brother": ["Egbe dan obioe nokpea"],"How is your brother": ["Egbe dan obio e ni okpea"],"How's your brother": ["Egbe dan obio e ni okpea"],"How is your sister": ["Egbe dan obioe nokhuo"],"How's your sister": ["Egbe dan obioe nokhuo"],"How is your sister": ["Egbe dan obio e ni okhuo"],"How's your sister": ["Egbe dan obio e ni okhuo"],"How is your body": ["Egbe dan e"],"How have you been doing": ["Buwe lu"],"How have you been doing": ["Be uwe lu"],"How are you feeling": ["Egbe dan e"],"How is he feeling": ["Egbe dan ole"],"How is she feeling": ["Egbe dan ole"],"How is it feeling": ["Egbe dan ole"],"How are they feeling": ["Egbe dan ele"],"How do you feel": ["Egbe Dan e"],"How does he feel": ["Egbe Dan ole"],"How does she feel": ["Egbe Dan ole"],"How does it feel": ["Egbe Dan ole"],"How do they feel": ["Egbe Dan ele"],"How old is she": ["Ekukpe ole khin"],"How do I say": ["Bimen a re ta"],"How do we say": ["Bman a re ta"],"How does he say": ["Bole a re ta"],"How does she say": ["Bole a re ta"],"How does it say": ["Bole a re ta"],"How do they say": ["Bele a re ta"],"How do they all say": ["Bibha a re ta"],"how many did he get": ["Eka la ole mien"],"how much did he get": ["Eka la ole mien"],"how many did he get": ["Eka lole mien"],"how much did he get": ["Eka lole mien"],"how many did she get": ["Eka la ole mien"],"how much did she get": ["Eka la ole mien"],"how many did she get": ["Eka lole mien"],"how much did she get": ["Eka lole mien"],"How": ["Oni"],"How is the show is it good": ["Onishow Ole meen mi"],"How is it": ["Oni ki"],"How was it": ["Oni ki"],"How was": ["Oni"],"How is": ["Oni"],"How many do you want": ["Eka la we gwano"],"How many times did I call you": ["Eki igba me ta tie e"],"How did I come": ["Bimen re vae"],"How did you come": ["Buwe re vae"],"How did he come": ["Bole re vae"],"How did she come": ["Bole re vae"],"How did it come": ["Bole re vae"],"How did we come ": ["Biman re vae"],"How did they come": ["Bele re vae"],"How did all of them come": ["Bibha re vae"],"How is it going": ["Egbe Fuwe re"],"How's it going": ["Egbe Fuwe re"],"How is it going": ["Egbe Fuwe re"],"How's it going": ["Egbe Fuwe re"],"How is the show is it good": ["Oni show ole meen mi"],"How much does it cost": ["Eka la"],"how are you all": ["Egbe dan bha"],"how are you all doing": ["Egbe dan bha"],"how are you all": ["Egbe dan ibha"],"how are you all doing": ["Egbe dan ibha"],"How are the children": ["Eni Ibhokan"],"How are your children": ["Eni Ibhokan no se e"],"How are the children": ["Eni Ibhokan"],"How are your children": ["Eni Ibhokan no se e"],"How man books did you buy": ["Eka ebe uwe de"],"He will teach me how to do it": ["Ole di maan ebe men ebare lu ole"],"how to": ["ebare"],"How will you buy it": ["Be bho uwe di re de ye"],"How much will I pay you": ["Eka men ha uwe le le"],"How old are you": ["Eka ikpe uwe khin"],"How much is it": ["Eka uwe re khien ole"],"How much are you selling it for": ["Eka uwe re khien ole"],"How much do you have": ["Eka uwe mon"],"How much do you have": ["Ekawe mon"],"How then will you buy it": ["Be bho uwe ha re de ye"],"How are you doing it": ["Buwe re lu ole"],"How was that": ["Oni ki"],"How is that": ["Oni ki"],"How about that": ["Oni ki"],"How was this": ["Ona ki"],"How is this": ["Ona ki"],"How about this": ["Ona ki"],"How is the chair we bought": ["Oni aga iman nien"],"How is the chair we bought": ["Onaga man nien"],"how much": ["Eka"],"how much is it": ["Eka no"],"how much it is": ["Eka no"],"how much is it": ["Eka no"],"How is the couch we bought": ["Oni aga iman nien"],"How is the couch we bought": ["Onagaman nien"],"How was work today": ["O niwenna elena"],"How much is this": ["Eka la ona"],"How much is this": ["Eka lona"],"How much is that": ["Eka la oni"],"How much is that": ["Eka loni"],"Do you know how to speak Esan": ["We de sabo zesan"],"He knows how to speak Esan": ["Ole de sabo zesan"],"How is dad": ["Oni aba"],"How is father": ["Oni aba"],"How is dad": ["Onaba"],"How is father": ["Onaba"]},
-  greetings: { "Hello": ["Bodia e"],"Hi": ["Bodia e"],"Good morning": ["Aisan"],"Good afternoon": ["Khara"],"Good evening": ["Khara"],"Good night": ["Okin ewie"],"Goodbye": ["Okinbue"],"Please": ["Huean"],"Thank you": ["Obuku"],"You are welcome": ["~"],"Excuse me": ["~"],"Im sorry": ["Ote"],"Yes": ["Eh He"],"No": ["Eh Ye"],"Maybe": ["Egheso"],"I dont know": ["Men bha len"],"Do you speak [language]?": ["We ze [uro]?"],"I dont understand": ["O bha mu men elo kuere"],"What is your name?": ["Bati elin e?"],"My name is...": ["Atie men"] },
-  descriptions: { "Big": ["Udede"],"Small": ["Khere"],"Hot": ["Ebekhua"],"Cold": ["Ebefuofua"],"Fast": ["Tuq-Mhin"],"Slow": ["Kike"],"Good": ["O  meen"],"Bad": ["Kholo mhin"],"New": ["Osogbon"],"Old": ["Fafa"],"Happy": ["Eghonghon"],"Sad": ["Onon ighonghon"],"Easy": ["Lekhe"],"Hard": ["Kaka-mhin"],"Beautiful": ["Meose"],"Funny": ["Ojie"],"Tall": ["Taan"],"Small amount ": ["Obhi ?khere"],"bigger": ["mama udede"],"fat": ["Konkon"],"tiny": ["ikwe'kwi"],"serious": ["Kaka mhin"],"tiresome": ["O khanlan"]},
-  animals: { "Alligator": ["agbaka"],"Ant": ["Abibi"],"Antelope": ["Uzo"],"Bat": ["Akogan"],"Bird": ["afianmhen"],"Butterfly": ["Akpakpa"],"Cat": ["onogbo"],"Chameleon": ["Alokhin"],"Chicken": ["?kh?"],"Chimpanzee": ["Osa"],"Cobra": ["Ebi"],"Crab": ["Ozi"],"Cricket": ["osen"],"Crocodile": ["agbaka"],"Deer": ["uzo"],"Dog": ["áwà"],"Earthworm": ["Ahulu"],"Elephant": ["Eni"],"Fly": ["i?khi??n"],"Frog": ["akil?"],"Goat": ["?bhe"],"Grasshopper": ["Ugbaf?n"],"Hawk": ["Ahi?nl?nkp?n"],"Horse": ["Akasi"],"Leopard": ["Atanakpa"],"Lion": ["Oduma"],"Monkey": ["emenlen"],"Pig": ["Esi"],"Porcupine": ["Qkhaen"],"Rabbit": ["Èluo"],"Rat": ["Of?n"],"Rooster": ["??kpà"],"Scorpion": ["Akpin(N)"],"Shark": ["Agbaka(N)"],"Sheep": ["Ohuan"],"Snake": ["?y?n"],"Sponge": ["Ihi?n"],"Squirrel": ["?tan"],"Tiger": ["Atanakpa"],"Tick": ["Arue"],"Tortoise": ["ewi"],"Turtle": ["ewi"],"Vulture": ["Udene"],"Woodpecker": ["?kpokporan"] },
-  food: { "Pan": ["Bread"], "Agua": ["Water"], "Manzana": ["Apple"] },
-  verbs_basic: { "To live": ["Dia"],"To die": ["Dokin"],"To sleep": ["Wele"],"To wake up": ["Re obowe"],"To run": ["Riune"],"To walk": ["Tete khian"],"To sit": ["Dotua"],"To stand": ["Gbano"],"To open": ["Tuje"],"To close": ["Khue"],"To read": ["Tie"],"To write": ["Ogbemi"],"To listen": ["Re eho"],"To talk": ["Talow"],"To call (phone)": ["Atie"],"To think": ["Eria"],"To remember": ["Yere"],"To forget": ["Bha yere"],"To wait": ["Modia"],"To help": ["Urekpa"],"To Accept": ["Mien"],"To Admit": ["Mienkue"],"To Agree": ["Aka"],"To Argue": ["Khon"],"To Arrive": ["Re se"],"To Ask": ["Ni"],"To assist": ["Nemhen"],"To be": ["aye"],"To begin": ["Da"],"To bought": ["ude"],"To build": ["bo"],"To build": ["la bon"],"To buy": ["de"],"To Call": ["Atie"],"To Arrive": ["Vae"],"To Come": ["Va de"],"To Care": ["Gbe"],"To Carried": ["Mu"],"To Catch": ["muen"],"To Choose": ["Ze"],"To Wash": ["Gbe"],"To Clean": ["Gbe"],"To Clean Clothes": ["Bolia"],"To complain": ["gui"],"To cook": ["nien"],"To cut": ["hian"],"To die": ["Yuu"],"To do": ["lu"],"To Eat": ["Le"],"To feel": ["fure"],"To Fight": ["Okhonlen"],"To find": ["Mienrie"],"To finish": ["fo"],"To follow": ["Deso"],"To forget": ["Ye"],"To Give": ["Re"],"To get": ["Ne"],"To go": ["Khian"],"To Went": ["Khian"],"To grew": ["Wanre"],"To had": ["mhon"],"To kill": ["gbe"],"To know": ["leen"],"To lead": ["oze"],"To learn": ["Lue"],"To leave": ["Khian"],"To left": ["sibi"],"To listen": ["hon"],"To look": ["ghe"],"To love": ["ihoemoegbe"],"To loves": ["hoemen"],"To make": ["waa"],"To open": ["Tuje"],"To protect": ["Odije"],"To reach": ["Sele"],"To receive": ["mien"],"To remain": ["Kere"],"To research": ["Tie"],"To respect": ["Ekpen"],"To return": ["Vae"],"To say": ["ta"],"To say": ["talow"],"To see": ["da ghe"],"To sell": ["khien"],"To send": ["Jie"],"To send": ["Ne"],"To serve": ["Ga"],"To sit": ["d'otua"],"To sleep": ["Wele"],"To speak": ["Talow"],"To spend": ["ria"],"To stand": ["gbano"],"To stay": ["dia"],"To stop": ["mundian"],"To stop": ["modia"],"To Take": ["Mien"],"To tell": ["Tama"],"To thank": ["obulu"],"To think": ["ria"],"To try": ["obo men dale"],"To understand": ["O mu men elo khuere"],"To use": ["Noo"],"To visit": ["Fe"],"To wait": ["Modia"],"To Walk": ["Tete Khian"],"To want": ["gwano"],"To Went": ["Yo"],"To work": ["iwenna"],"To Find": ["Mi"],"To able": ["ki da"] },
-  verbs_travel: { "Tired": ["Loe"],"Hungry": ["Ohame"],"Thirsty": ["Ohame"],"Sick": ["Ekhumun"],"Hot (feeling)": ["Ebekhua"],"Cold (feeling)": ["Ebefuofua"],"Scared": ["~"],"Angry": ["Osobhalo"],"Bored": ["~"],"Excited": ["Eghonghon"] },
-  nouns: { "Man": ["Okpea"],"Woman": ["Okhuo"],"Child": ["Omon"],"Friend": ["Onuele"],"Family": ["Ibokhan"],"House": ["Uwa"],"Car": ["Imotto"],"Work": ["Iwena"],"School": ["Uwebe"],"Water": ["Amen"],"Food": ["Ebale"],"Money": ["Igho"],"Time": ["Eghe"],"Day": ["Ede"],"Night": ["Ason"] },
-  questions: { "Who?": ["Khona?"],"What?": ["Ebela?"],"Where?": ["Je?"],"When?": ["Eghe la?"],"Why?": ["Bezele?"],"How?": ["Oni?"],"How much?": ["Eka?"],"How many?": ["Eka la?"],"Which?": ["Onia?"],"What does this mean?": ["Buwe roni ta?"]},
-  time: { "Morning": ["Ewie"],"Afternoon": ["Odanmen"],"Evening": ["Emuan"],"Night": ["Ason"],"Today": ["Elena"],"Tomorrow": ["Akho"],"Yesterday": ["Inode"],"Now": ["Nia"],"Later": ["Muegbe"],"Early": ["~"],"Late": ["~"],"Always": ["Egherebhe"],"Never": ["~"],"Sometimes": ["Egheso"],"Often": ["~"],"Usually": ["~"],"Breakfast": ["~"],"Lunch": ["~"],"Dinner": ["~"],"Snack": ["~"]},
-  commomverbs: { "To be": ["Khin"],"To have": ["Mhon"],"To go": ["Akhian"],"To come": ["Vae"],"To eat": ["lebae"],"To drink": ["Moi"],"To see": ["Da ghe"],"To hear": ["Hon"],"To say": ["Ota"],"To do": ["Lu"],"To make": ["Waa"],"To want": ["Gwano"],"To know": ["Len"],"To like": ["Oye"],"To need": ["Khonu"] },
-  family: { "Madre": ["Mother"], "Padre": ["Father"], "Hermano": ["Brother"] },
-  directions: { "In": ["Bhi/Ri bi"],"On": ["Bhi/Ri bi"],"At": ["Bhi/Ri bi"],"Under": ["Otole"],"Over": ["~"],"With": ["Deba"],"Without": ["~"],"Before": ["Ka"],"After": ["Okue gbe rha"],"Because": ["Ramude"],"And": ["Bi"],"Or": ["La"],"But": ["Sokpan"],"If": ["Kha"],"Then": ["~"]},
-  clothing: { "Camisa": ["Shirt"], "Pantalones": ["Pants"], "Zapatos": ["Shoes"] },
-  weather: { "Lluvia": ["Rain"], "Nieve": ["Snow"], "Viento": ["Wind"] },
-  body: { "Head": ["Uhonmon"],"Hair": ["Eto"],"Face": ["Elolo"],"Eye": ["Elo"],"Hair": ["Eto"],"Nose": ["Ihue"],"Mouth": ["Unun"],"Hand": ["Obo"],"Foot": ["Oe"],"Leg": ["Oe"],"Armpit": ["Elihele"],"butt": ["uwedin"],"cheek": ["iro"],"Elbow": ["Egogo obor"],"eyelashes": ["ihuenlo"],"Finger": ["Ikpianb?"],"Finger Nail": ["ihieonbo"],"Finger Nails": ["Ehienlen"],"Knee": ["ugogo"],"Neck": ["Uru"],"Shoulder": ["ijianb?"],"Stomach": ["?k?"],"Tooth": ["akon"],"Toe": ["ikpianw?"],"Waist": ["?kun"],"Wrist": ["Akhu"]},
-  school: { "Who bought the car": ["Obho ude onin imonto"], "Who bought the car": ["Obho de onin imonto"], "Discuss": ["Niyen"], "We will discuss the book tomorrow": ["Man  ha niyen onin ebe elena"], "He is strong": ["Daniel ole wowo"], "He will by water tomorrow": ["Ole ha de amen akho"], "He will by water tomorrow": ["Ole ha de amen ewie"], "Drive": ["Heen"], "I will drive to church": ["Men ha heen imonto akhian otue"], "Everyday": ["Edede"], "I eat food everyday": ["Men le ebae edede"], "Please give me the money": ["Wowo rie men onin igho"], "Preach": ["Wa osun"], "You cannot preach here": ["Uwe ii sabo wa osun enan"], "Run": ["Rie une"], "Please run home": ["Wowo rie une akhian uwa"], "Gathering": ["Sikoko"], "He is gathering the money": ["Ole sikoko onin igho"], "Dance": ["Gwe gbe ikhen"], "I cant dance": ["Men bha gwe gbe ikhen"], "Cold": ["Fofo"], "Today is cold": ["Elena ole fofo"], "Hat": ["Ukperu"], "I am wearing a hat": ["Men yo ukperu"], "He bought clothes": ["Ole de ikpon"], "He bought clothes": ["Ole ude ikpon"], "I will right a book": ["Men ha gben ebe"], "This place is very tight": ["Enan wowo keke"], "Tight": ["Keke"], "Very": ["Woo"], "Here": ["Enan"], "This place": ["Enan"], "Help": ["Urekpa"], "Help me carry this money": ["Rekpa men ka igho onin"], "Help me carry this money": ["Urekpa men ka igho onin"], "The": ["Onin"], "I dont accept": ["Men bha ka"], "I will not accept": ["Men ii ka"], "Dont accept": ["Aii ki"], "Do not accept": ["Aii ki"], "Accept": ["Ka"], "Close your mouth": ["Koko unun ose"], "Close your mouth": ["Koko unun no se e"], "Your mouth": ["Unun ose"], "Your mouth": ["Unun no se e"], "Mouth": ["Unun"], "Close it": ["Koko Ole"], "Your back": ["ikike"], "Before": ["ikike"], "Behind": ["ikike"], "To be tight": ["Keke"], "Count": ["Ka"], "Agree": ["Ka"], "Shut": ["Koko"], "Close": ["Koko"], "Do not laugh at her": ["A ii je ole"], "Do not laugh at him": ["A ii je ole"], "Dont": ["A ii"], "Do not": ["A ii"], "Mock": ["Je"], "Laugh": ["Je"], "Do not send me": ["A ii jie men"], "Errand": ["Uhunmun"], "Message": ["Uhunmun"], "Who sent you the message": ["Obho je uwe uhunmun"], "Send": ["Je"], "Whom": ["Obho"], "Who": ["Obho"], "I am going to esan class": ["Men khian uwaebe esan"], "Which place": ["Je bho"], "Where": ["Je"], "Where are you going": ["Je uwe khian"], "My money": ["igho men"], "My bag": ["Ekpa men"], "I am washing my bag": ["Men kpe ekpa men"], "I am": ["Men"], "Bag": ["Ekpa"], "Dishes": ["Ikpamaku"], "I am washing dishes": ["Men kpe ikpamaku"], "I am washing dishes": ["Men gbe ikpamaku"], "He is packing clothes": ["Ole hee ikpon"], "I am packing things": ["Men hee emin"], "What are you doing": ["Be uwe lu"], "We are carrying chairs": ["Man hee aga"], "We are carrying things": ["Man hee emin"], "Carry": ["Hee"], "Pack": ["Hee"], "Reject": ["Hee"], "Please do not reject the money": ["Wowo a ii hee onin igho"], "Clothing": ["Ukpon"], "Clothes": ["ikpon"], "I wash clothes": ["Men gbe ikpon"], "I wash clothes": ["Men hoo ikpon"], "Dishes": ["kpe"], "Washing": ["Gbe"], "Washing": ["hoo"], "Go": ["Yo"], "Today": ["Elena"], "Work": ["iwenna"], "Will": ["Ha"], "He will go to work today": ["Ole ha ya iwenna elena"], "Ring a bell": ["Fi egogo"], "Bell": ["Egogo"], "Teacher": ["Omaanebe"], "Our teacher is ringing the bell": ["Omaanebe man, fi onin egogo"], "Dont": ["A ii"], "Here": ["Enan"], "This place": ["Enan"], "Argue": ["Gbugen"], "Don not argue in this place": ["A ii gbugen bhi enan"], "I will worship you": ["Men ha ga uwe"], "I will serve you": ["Men ha ga uwe"], "I worship God": ["Men ga Ose"], "Worship": ["Ga"], "Serve": ["Ga"], "Ready": ["Ga"], "Cooked": ["Ga"], "The food is cooked": ["Onin Ebae ga"], "Buy": ["Ude"], "Buy": ["De"], "Chair": ["Aga"], "Today": ["Elena"], "My mother bought a chair today": ["Ine men de aga elena"], "My mother bought a chair today": ["Ine men ude aga elena"], "He is agile": ["Ole fifi"], "It": ["Ole"], "Pluck": ["Fan"], "Dont": ["A ii"], "Do not": ["A ii"], "Do not pluck it": ["A ii fan ole"], "The food is cold": ["Onin ebae fofo"], "Chilled": ["Fofo"], "Cold": ["Fofo"], "The": ["Onin"], "The water is cold": ["Onin amen fofo"], "He saw a bird": ["Ole da ghee afianmen"], "He sees a bird": ["Ole da ghee afianmen"], "Bird": ["Afianmen"], "See": ["Da ghee"], "I saw a bird": ["Men da ghee afianmen"], "Water": ["Amen"], "I am drinking water": ["Men won amen"], "Drink (Water)": ["Won"], "Drink (Alcohol)": ["Da"], "Anyon udin": ["Palm Wine"], "Uwe ba da anyon udin": ["Do you drink alcohol"], "Da Ede uwe re vade": ["Are you coming to the river"], "Vade": ["Coming"], "Khian": ["Going"], "Ede": ["River"], "Ole khian ede": ["He is going to the river"], "Tie": ["Reading"], "Tie": ["Read"], "Men khian la meen eto": ["I am going to make hair"], "Eto": ["Hair"], "Gben": ["Cut"], "Men khian la gben eto": ["I am going to cut hair"], "Ebe": ["book"], "Men tie ebe": ["I am reading a book"], "ii": ["will not"], "ii": ["wont"], "E ii yo uwaebe elena": ["They won't go to school today"], "E ii yo uwaebe elena": ["They are not going to school today"] }
-};
+            /* ---------- Categories + seed hook ---------- */
+            const CATS = [
+                "numbers", "others", "greetings", "descriptions", "animals", "food", "verbs_basic", "verbs_travel",
+                "nouna", "questions", "time", "commonverbs", "family", "directions", "clothing", "weather", "body", "school"
+            ];
 
+            const SEED = {
+                numbers: { "1": ["Ọkpa"], "2": ["Eva"], "3": ["Ea"], "4": ["Enen"], "5": ["Isen"], "6": ["Ehan"], "7": ["Ihinlọn"], "8": ["Elenlen"], "9": ["Isilin"], "10": ["Igbe"], "11": ["Ugbọlọ"], "12": ["Igbeva"], "12": ["Iyisen bi Elenlen yan Ujie"], "14": ["Igbenen"], "15": ["Isen iyan igbe"], "15": ["Iyisen bi igbe yan ẹgbọ"], "16": ["Ehan yan igbe"], "16": ["Iyisen bi Isilin yan ẹgbọ"], "17": ["Ihinlọn yan igbe"], "18": ["Elenlen yan igbe"], "19": ["Isilin yan igbe"], "19": ["Iyisen bi igbe yan ẹgbọ"], "20": ["Ujie"], "21": ["Ọkpa yan Ujie"], "22": ["Eva yan Ujie"], "23": ["Ea yan Ujie"], "24": ["Enen yan Ujie"], "25": ["Isen yan Ujie"], "26": ["Ehan yan Ujie"], "27": ["Ihinlọn yan Ujie"], "28": ["Elenlen yan Ujie"], "29": ["Isilin yan Ujie"], "30": ["Ọgban"], "30": ["Ọgban"], "31": ["Ọkpa yan ọgban"], "32": ["Eva yan ọgban"], "33": ["Ea yan ọgban"], "34": ["Enen yan ọgban"], "35": ["Isen yan ọgban"], "36": ["Ehan yan ọgban"], "37": ["Ihinlọn yan ọgban"], "38": ["Elenlen yan ọgban"], "39": ["Isilin yan ọgban"], "40": ["Egbo eva"], "40": ["Ẹgbọ Eva"], "41": ["Ọkpa yan ẹgbọ Eva"], "42": ["Eva yan ẹgbọ Eva"], "43": ["Ea yan ẹgbọ Eva"], "44": ["Enen yan ẹgbọ Eva"], "45": ["Isen yan ẹgbọ Eva"], "46": ["Ehan yan ẹgbọ Eva"], "47": ["Ihinlọn yan ẹgbọ Eva"], "48": ["Elenlen yan ẹgbọ Eva"], "49": ["Isilin yan ẹgbọ Eva"], "50": ["Igbe yan egbo eva"], "50": ["Igbe yan ẹgbọ eva(la ẹgbọ Eva bi ukhiọmhen)"], "51": ["Ugbọlọ yan ẹgbọ eva"], "52": ["Igbeva yan ẹgbọ Eva"], "53": ["Igbea yan ẹgbọ eva"], "54": ["Igbenen yan ẹgbọ eva"], "55": ["Isen iribhi Iyeha(la Isen iribhi ẹgbọ Ea)"], "56": ["Enen iribhi ẹgbọ Ea"], "57": ["Ea iribhi ẹgbọ Ea"], "58": ["Eva iribhi ẹgbọ Ea"], "59": ["Ọkpa iribhi ẹgbọ Ea"], "60": ["Iyeha"], "60": ["Iyeha (la ẹgbọ Ea)"], "61": ["Ọkpa yan iyeha(LA Ọkpa yan ẹgbọ Ea)"], "62": ["Eva yan iyeha"], "63": ["Ea yan iyeha"], "64": ["Enen yan iyeha"], "65": ["Isen yan iyeha"], "66": ["Ehan yan iyeha"], "67": ["Ihinlọn yan iyeha"], "68": ["Elenlen yan iyeha"], "69": ["Isilin yan iyeha"], "70": ["Igbe yan iyeha"], "70": ["Igbe yan iyeha"], "71": ["Ugbọlọ yan iyeha"], "72": ["Igbeva yan iyeha"], "73": ["Igbea yan iyeha"], "74": ["Igbenen yan iyeha"], "75": ["Isen iribhi Iyenen(Isen iribhi ẹgbọ Enen)"], "76": ["Enen iribhi Iyenen"], "77": ["Ea iribhi Iyenen"], "78": ["Eva iribhi iyenen"], "79": ["Ọkpa iribhi iyenen"], "80": ["Egbo eva bhe ejalen eva"], "80": ["Iyenen(ẹgbọ Enen)"], "81": ["Ọkpa yan ẹgbọ Enen(Ọkpa yan Iyenen)"], "82": ["Eva yan Iyenen"], "83": ["Ea yan Iyenen"], "84": ["Enen yan Iyenen"], "85": ["Isen yan Iyenen"], "86": ["Ehan yan Iyenen"], "87": ["Ihinlọn yan Iyenen"], "88": ["Elenlen yan Iyenen"], "89": ["Isilin yan Iyenen"], "90": ["Igbe ii ribhi iyisẹn"], "90": ["Igbe yan Iyenen"], "91": ["Ugbọlọ yan Iyenen"], "92": ["Igbeva yan Iyenen"], "93": ["Igbea yan Iyenen"], "94": ["Igbenen yan Iyenen"], "95": ["Isen iribhi Iyisen"], "96": ["Enen iribhi Iyisen"], "97": ["Ea iribhi Iyisen"], "98": ["Eva iribhi Iyisen"], "99": ["Ọkpa iribhi Iyisen"], "100": ["Iyisẹn"], "100": ["Iyisen(Ẹgbọ Isen)"], "101": ["Ọkpa yan Iyisen"], "102": ["eva yan Iyisen"], "103": ["Ea yan Iyisen"], "104": ["Enen yan Iyisen"], "105": ["Isen yan Iyisen"], "106": ["Ehan yan Iyisen"], "107": ["Ihinlọn yan Iyisen"], "108": ["Elenlen yan Iyisen"], "109": ["Isilin yan Iyisen"], "110": ["Igbe yan Iyisen"], "111": ["ugbọlọ yan Iyisen"], "112": ["Igbeva yan Iyisen"], "113": ["Igbea yan Iyisen"], "114": ["Igbenen yan Iyisen"], "115": ["Iyisen bi Isen yan igbe"], "116": ["Iyisen bi Ehan yan igbe (Igbehan yan Iyisen)"], "117": ["igbe Ihinlọn yan Iyisen(Iyisen bi Ihinlọn yan igbe)"], "118": ["Iyisen bi Elenlen yan igbe"], "119": ["Iyisen bi Isilin yan igbe"], "120": ["uje yan Iyisen (Iyisen bi Ujie)"], "121": ["Iyisen bi Ọkpa yan Ujie"], "122": ["Iyisen bi eva yan Ujie"], "123": ["Iyisen bi Ea yan Ujie"], "124": ["Iyisen bi Enen yan Ujie"], "125": ["Iyisen bi Isen yan Ujie"], "126": ["Iyisen bi Ehan yan Ujie"], "127": ["Iyisen bi Ihinlọn yan Ujie"], "129": ["Iyisen bi Isilin yan Ujie"], "130": ["Iyisen bi ọgban (ọgban yan Iyisen)"], "131": ["Iyisen bi Ọkpa yan ọgban"], "132": ["Iyisen bi EVA YAN ọgban"], "133": ["Iyisen bi Ea yan ọgban"], "134": ["Iyisen bi Enen yan ọgban"], "135": ["Iyisen bi Isen yan ọgban"], "136": ["Iyisen bi Ehan yan ọgban"], "137": ["Iyisen bi Ihinlọn yan ọgban"], "138": ["Iyisen bi Elenlen yan ọgban"], "139": ["Iyisen bi Isilin yan ọgban"], "140": ["Ẹgbọ"], "141": ["Iyisen bi Ọkpa yan ẹgbo"], "142": ["Iyisen bi eva yan ẹgbọ"], "143": ["Iyisen bi Ea yan ẹgbọ"], "144": ["Iyisen bi Enen yan ẹgbọ"], "145": ["Iyisen bi Enen yan ẹgbọ"], "146": ["Iyisen bi Ehan yan ẹgbọ"], "147": ["Iyisen bi Ihinlọn yan ẹgbọ"], "148": ["Iyisen bi Elenlen yan ẹgbọ"], "149": ["Iyisen bi Isilin yan ẹgbo"], "151": ["Iyisen bi Ugbọlọ yan ẹgbọ"], "152": ["Iyisen bi Igbeva yan ẹgbọ"], "153": ["Iyisen bi Igbea yan ẹgbọ"], "154": ["Iyisen bi Igbenen yan ẹgbọ"], "155": ["Iyisen bi Isen iribhi ẹgbọ"], "156": ["Iyisen bi Enen iribhi ẹgbọ"], "157": ["Iyisen bi Ea iribhi ẹgbọ"], "158": ["Iyisen bi eva iribhi ẹgbọ"], "159": ["Iyisen bi Ọkpa iribhi ẹgbọ"], "160": ["Iyisen bi ẹgbọ"], "161": ["Iyisen bi Ọkpa yan ẹgbọ"], "162": ["Iyisen bi eva yan ẹgbọ"], "163": ["Iyisen bi ea yan ẹgbọ"], "164": ["Iyisen bi Enen yan ẹgbọ"], "165": ["Iyisen bi Isen yan ẹgbọ"], "166": ["Iyisen bi Ehan yan ẹgbọ"], "167": ["Iyisen bi Ihinlọn yan ẹgbọ"], "168": ["Iyisen bi Elenlen yan ẹgbọ"], "170": ["Iyisen bi igbe yan ẹgbọ"], "171": ["Iyisen bi Ugbọlọ yan ẹgbọ"], "172": ["Iyisen bi Igbeva yan ẹgbọ"], "173": ["Iyisen bi Igbea yan ẹgbọ"], "174": ["Iyisen bi Igbenen yan ẹgbọ"], "175": ["Iyisen bi Isen iribhi ẹgbọ"], "176": ["Iyisen bi Enen iribhi ẹgbọ"], "177": ["Iyisen bi ea iribhi ẹgbọ"], "178": ["Iyisen bi eva iribhi ẹgbọ"], "179": ["Iyisen bi Ọkpa iribhi ẹgbọ"], "180": ["Iyisen bi ẹgbọ"], "181": ["Iyisen bi Ọkpa yan ẹgbọ"], "182": ["Iyisen bi eva yan ẹgbọ"], "183": ["Iyisen bi ea yan ẹgbọ"], "184": ["Iyisen bi Enen yan ẹgbọ"], "185": ["Iyisen bi Isen yan ẹgbọ"], "186": ["Iyisen bi Ehan yan ẹgbọ"], "187": ["Iyisen bi Ihinlọn yan ẹgbọ"], "188": ["Iyisen bi Elenlen yan ẹgbọ"], "189": ["Iyisen bi Isilin yan ẹgbọ Enen"], "191": ["Iyisen bi Ugbọlọ yan ẹgbọ"], "192": ["Iyisen bi Igbeva yan ẹgbọ"], "193": ["Iyisen bi Igbea yan ẹgbọ"], "194": ["Iyisen bi Igbenen yan ẹgbọ"], "195": ["Iyisen bi Isen iribhi Iyisen"], "196": ["Iyisen bi Enen iribhi iyisen"], "197": ["Iyisen bi ea iribhi iyisen"], "198": ["Iyisen bi eva iribhi iyisen"], "199": ["Iyisen bi Ọkpa iribhi iyisen"], "200": ["Iyisẹnejenlaeva - 200"], "200": ["iyisen"], "200": ["iyisen"], "1000": ["Ẹkpa igbe"], "2000": ["Ẹkpa ujie"], "10000": ["Uli Igbe"], "20000": ["Uli Ujie"], "30000": ["Uli Ogban"], "40000": ["Uli egboeva"], "50000": ["Ugbe Igbe Yan Egboeva"], "60000": ["Uli Iyeha"], "70000": ["Uli Igbe Yan Iyeha"], "80000": ["Uli Iyenen"], "90000": ["Uli Igbe Yan Iyenen"], "100000": ["Uli iyisen"], "200000": ["Uli iyisen eva"], "300000": ["Uli iyisen ea"], "400000": ["Uli iyisen enen"], "500000": ["Uli iIyisen isen"], "600000": ["Uli iyisen ehan"], "700000": ["Uli iyisen ihilon"], "800000": ["Uli iyisen elenlen"], "900000": ["Uli iyisen isilin"], "1000000": ["Uli iyisen igbe"], "200000000": ["Ebo iyisen eva"], "300000000": ["Ebo iyisen ea"], "400000000": ["Ebo iyisen enen"], "500000000": ["Ebo iyisen isen"], "600000000": ["Ebo iyisen ehan"], "700000000": ["Ebo iyisen ihilon"], "800000000": ["Ebo iyisen elenlen"], "900000000": ["Ebo iyisen isilin"], "1000000000": ["Ebo iyisen igbe"] },
+                others: { "How about you?": ["W? ki?"], "How are Esan Studies?": ["Oni Esan Studies Ki?"], "How are the children?": ["Eni Ibhokan?"], "How are the kids?": ["En ibhokhan ki?"], "How are you doing?": ["Bu w? ki khian y??"], "How are you feeling?": ["Egbe daan ??"], "How are you?": ["?n egbe?"], "How did Adesua get to school?": ["Ba Adesua r? s? bhi isiku?"], "How did Okojie fix the bike?": ["BOkojie r? d?ni ik?nk?n y??"], "How did you sleep?": ["W? w?le?"], "How does one fry plaintain?": ["Ba r? lanmon ?gh?d? y??"], "How is it?": ["Oni Ki"], "How is life treating you? (in your country of residence)": ["?n ?bho?"], "How is life?": ["?n agmon?"], "How is the family?": ["?n uwa?"], "How is work?": ["Iwenna ki?"], "How old is he/she?": ["Ekukpe ?le khin?"], "Okojie went to school however he forgot his books at home": ["Okojie yi isikulu ?kpa ki n?n ? yee ebe na s? bhu uwa"], "How do you say it": ["Buwe a re tale"], "How do you say it": ["Be uwe a re ota ole"], "How do you say": ["Buwe a re ta"], "How do you say many": ["Buwe a re tibumi"], "Show off": ["Agbagba 1N"], "Show Off": ["Shakara"], "How old are you": ["Ekupe? we? hi"], "How many years are you": ["Ekupe? we? hi"], "He/she/it knows how to swim": ["? gu? ?d?"], "How does one fry plaintain": ["Ba r? lanmon ?gh?d?"], "He/she/it knows how to swim": ["? gu? gua bh? ?d?"], "How do I get to?": ["Bime a re si?"], "How to I get to": ["Bime a re si"], "How is my father": ["?ni aba imen"], "How is my dad": ["?ni aba imen"], "How is my father": ["?nabamen"], "How is my dad": ["?nabamen"], "How do you?": ["Be uw? a re?"], "How do you": ["Be uw? a re"], "How will you?": ["Be uw? a re?"], "How will you": ["Be uw? a re"], "How do you?": ["Buw? a re?"], "How will you?": ["Buw? a re?"], "How do you?": ["Buw? a re"], "How will you?": ["Buw? a re"], "How do you say?": ["Buw? a re ta?"], "How do you say": ["Buw? a re ta"], "How do you say it?": ["Buw? a re ta ?le?"], "How do you say it": ["Buw? a re ta ?le"], "How do you say it?": ["Buw? a re tale?"], "How do you say it": ["Buw? a re tale"], "how long have you been here?": ["Bu ki se bue bhe ena"], "that’s how I see it": ["Irio men realele"], "Somehow": ["F?l? F?l?"], "How are you today?”": ["?negbe?”"], "How much?": ["Eka?"], "How much time is it?": ["Ekeghe a ye?"], "How old is he?": ["Ekukpe ?le khin?"], "How old is she?": ["Ekukpe ?le khin?"], "How old is it?": ["Ekukpe ?le khin?"], "How old is he?": ["Eke ukpe ?le khin?"], "How old is she?": ["Eke ukpe ?le khin?"], "How old is it?": ["Eke ukpe ?le khin?"], "How old is he?": ["Ekukpe ?le khin?"], "How old is she?": ["Ekukpe ?le khin?"], "How old is it?": ["Ekukpe ?le khin?"], "How many years?": ["Ekukpe?"], "How many years?": ["Eka ukpe?"], "How many years?": ["Ekukpe?"], "How old?": ["Ekukpe?"], "How old?": ["Eka ukpe?"], "How old?": ["Ekukpe?"], "How old?": ["Ekukpe"], "How old?": ["Eka ukpe"], "How old?": ["Ekukpe"], "How old are you?": ["Ekukpe uw? khin?"], "How old are you?": ["Ekuukpe uw? khin?"], "How old are you?": ["Eka ukpe uw? khin?"], "How old are you?": ["Ekukpe uw? khin"], "How old are you?": ["Ekuukpe uw? khin"], "How old are you?": ["Eka ukpe uw? khin"], "We doing how much for hands reach": ["Iman lu eka ni obo sele"], "How was your journey?": ["Onoshan nuwe shanen?"], "How was your journey": ["Onoshan nuwe shanen"], "How is your city?": ["Oni uhuonhbu uwede?"], "How is your city": ["Oni uhuonhbu uwede"], "How is you home?": ["Onuwa nonse?"], "How is you home": ["Onuwa nonse"], "How is your husband": ["Egbe dan ?d??"], "How is your husband?": ["Egbe dan ?d???"], "How are your children?": ["Eni bhokhan ne se egbe dan eh?"], "How are your children": ["Eni bhokhan ne se egbe dan eh"], "How is your entire family?": ["Egbe dan in ibhokhanbha rebhe?"], "How is your entire family": ["Egbe dan in ibhokhanbha rebhe"], "How is your family?": ["Egbe dan in ibhokhanbha?"], "How is your family": ["Egbe dan in ibhokhanbha"], "How much": ["Eka la"], "How many": ["Eka la"], "How are you": ["Bodia e"], "How is your father": ["Egbe Dan Aba"], "How's your father": ["Egbe Dan Aba"], "How are you": ["Egbe Dan"], "How is your mother": ["Egbe Dan Inen"], "How's your fmother": ["Egbe Dan Inen"], "How is your bother": ["Egbe Dan In Obioe nokpia"], "How is your sister": ["Egbe Dan In Obioe nokhuo"], "How did he do that": ["Ba Ole lu oni"], "How did she do that": ["Ba Ole lu oni"], "How did it do that": ["Ba Ole lu oni"], "How": ["Ba"], "How did he": ["Bole"], "How is your body": ["Onegbe fure"], "How is your body": ["Oni egbe fure"], "How is your body": ["Egbe fuwe re"], "How is your body": ["Egbe fuere"], "How old is he": ["Ekukpe ?le khin"], "How old is she": ["Ekukpe ?le khin"], "How old is it": ["Ekukpe ?le khin"], "How many people do you have tomorrow": ["Eka la agbon we bhon akho"], "How many people do you have tomorrow": ["Ekagbon we bhon akho"], "How many patients do you have tomorrow": ["Eknekhuun we bhon akho"], "How many sick people do you have tomorrow": ["Eknekhuun we bhon akho"], "How many people do you have": ["Eka la agbon we bhon"], "How many people do you have": ["Ekagbon we bhon"], "How many patients do you have": ["Eknekhuun we bhon"], "How many sick people do you have": ["Eknekhuun we bhon"], "how": ["Ebi"], "how": ["Ebi"], "How was your trip": ["Onuwede"], "How was your trip": ["Oni uwe ede"], "How did you": ["Be uwe a re"], "How did you learn that": ["Be uwe a re lue oni"], "How do you learn that": ["Be uwe a re lue oni"], "how did you sleep": ["We wele nosen"], "How is your wife": ["Oni Okhuo e"], "How is your wife": ["OnOkhuo e"], "How's your wife": ["Oni Okhuo e"], "How's your wife": ["OnOkhuo e"], "How is your family": ["Egbe dan ibhokhanbha"], "How are you doing": ["Bodia e"], "How is your mother": ["Egbe Dan Ine"], "How's your mother": ["Egbe Dan Ine"], "How is your father": ["Egbe Dan Aba"], "How's you father": ["Egbe Dan Aba"], "How is your brother": ["Egbe dan obioe nokpea"], "How's your brother": ["Egbe dan obioe nokpea"], "How is your brother": ["Egbe dan obio e ni okpea"], "How's your brother": ["Egbe dan obio e ni okpea"], "How is your sister": ["Egbe dan obioe nokhuo"], "How's your sister": ["Egbe dan obioe nokhuo"], "How is your sister": ["Egbe dan obio e ni okhuo"], "How's your sister": ["Egbe dan obio e ni okhuo"], "How is your body": ["Egbe dan e"], "How have you been doing": ["Buwe lu"], "How have you been doing": ["Be uwe lu"], "How are you feeling": ["Egbe dan e"], "How is he feeling": ["Egbe dan ole"], "How is she feeling": ["Egbe dan ole"], "How is it feeling": ["Egbe dan ole"], "How are they feeling": ["Egbe dan ele"], "How do you feel": ["Egbe Dan e"], "How does he feel": ["Egbe Dan ole"], "How does she feel": ["Egbe Dan ole"], "How does it feel": ["Egbe Dan ole"], "How do they feel": ["Egbe Dan ele"], "How old is she": ["Ekukpe ole khin"], "How do I say": ["Bimen a re ta"], "How do we say": ["Bman a re ta"], "How does he say": ["Bole a re ta"], "How does she say": ["Bole a re ta"], "How does it say": ["Bole a re ta"], "How do they say": ["Bele a re ta"], "How do they all say": ["Bibha a re ta"], "how many did he get": ["Eka la ole mien"], "how much did he get": ["Eka la ole mien"], "how many did he get": ["Eka lole mien"], "how much did he get": ["Eka lole mien"], "how many did she get": ["Eka la ole mien"], "how much did she get": ["Eka la ole mien"], "how many did she get": ["Eka lole mien"], "how much did she get": ["Eka lole mien"], "How": ["Oni"], "How is the show is it good": ["Onishow Ole meen mi"], "How is it": ["Oni ki"], "How was it": ["Oni ki"], "How was": ["Oni"], "How is": ["Oni"], "How many do you want": ["Eka la we gwano"], "How many times did I call you": ["Eki igba me ta tie e"], "How did I come": ["Bimen re vae"], "How did you come": ["Buwe re vae"], "How did he come": ["Bole re vae"], "How did she come": ["Bole re vae"], "How did it come": ["Bole re vae"], "How did we come ": ["Biman re vae"], "How did they come": ["Bele re vae"], "How did all of them come": ["Bibha re vae"], "How is it going": ["Egbe Fuwe re"], "How's it going": ["Egbe Fuwe re"], "How is it going": ["Egbe Fuwe re"], "How's it going": ["Egbe Fuwe re"], "How is the show is it good": ["Oni show ole meen mi"], "How much does it cost": ["Eka la"], "how are you all": ["Egbe dan bha"], "how are you all doing": ["Egbe dan bha"], "how are you all": ["Egbe dan ibha"], "how are you all doing": ["Egbe dan ibha"], "How are the children": ["Eni Ibhokan"], "How are your children": ["Eni Ibhokan no se e"], "How are the children": ["Eni Ibhokan"], "How are your children": ["Eni Ibhokan no se e"], "How man books did you buy": ["Eka ebe uwe de"], "He will teach me how to do it": ["Ole di maan ebe men ebare lu ole"], "how to": ["ebare"], "How will you buy it": ["Be bho uwe di re de ye"], "How much will I pay you": ["Eka men ha uwe le le"], "How old are you": ["Eka ikpe uwe khin"], "How much is it": ["Eka uwe re khien ole"], "How much are you selling it for": ["Eka uwe re khien ole"], "How much do you have": ["Eka uwe mon"], "How much do you have": ["Ekawe mon"], "How then will you buy it": ["Be bho uwe ha re de ye"], "How are you doing it": ["Buwe re lu ole"], "How was that": ["Oni ki"], "How is that": ["Oni ki"], "How about that": ["Oni ki"], "How was this": ["Ona ki"], "How is this": ["Ona ki"], "How about this": ["Ona ki"], "How is the chair we bought": ["Oni aga iman nien"], "How is the chair we bought": ["Onaga man nien"], "how much": ["Eka"], "how much is it": ["Eka no"], "how much it is": ["Eka no"], "how much is it": ["Eka no"], "How is the couch we bought": ["Oni aga iman nien"], "How is the couch we bought": ["Onagaman nien"], "How was work today": ["O niwenna elena"], "How much is this": ["Eka la ona"], "How much is this": ["Eka lona"], "How much is that": ["Eka la oni"], "How much is that": ["Eka loni"], "Do you know how to speak Esan": ["We de sabo zesan"], "He knows how to speak Esan": ["Ole de sabo zesan"], "How is dad": ["Oni aba"], "How is father": ["Oni aba"], "How is dad": ["Onaba"], "How is father": ["Onaba"] },
+                greetings: { "Hello": ["Bodia e"], "Hi": ["Bodia e"], "Good morning": ["Aisan"], "Good afternoon": ["Khara"], "Good evening": ["Khara"], "Good night": ["Okin ewie"], "Goodbye": ["Okinbue"], "Please": ["Huean"], "Thank you": ["Obuku"], "You are welcome": ["~"], "Excuse me": ["~"], "Im sorry": ["Ote"], "Yes": ["Eh He"], "No": ["Eh Ye"], "Maybe": ["Egheso"], "I dont know": ["Men bha len"], "Do you speak [language]?": ["We ze [uro]?"], "I dont understand": ["O bha mu men elo kuere"], "What is your name?": ["Bati elin e?"], "My name is...": ["Atie men"] },
+                descriptions: { "Big": ["Udede"], "Small": ["Khere"], "Hot": ["Ebekhua"], "Cold": ["Ebefuofua"], "Fast": ["Tuq-Mhin"], "Slow": ["Kike"], "Good": ["O  meen"], "Bad": ["Kholo mhin"], "New": ["Osogbon"], "Old": ["Fafa"], "Happy": ["Eghonghon"], "Sad": ["Onon ighonghon"], "Easy": ["Lekhe"], "Hard": ["Kaka-mhin"], "Beautiful": ["Meose"], "Funny": ["Ojie"], "Tall": ["Taan"], "Small amount ": ["Obhi ?khere"], "bigger": ["mama udede"], "fat": ["Konkon"], "tiny": ["ikwe'kwi"], "serious": ["Kaka mhin"], "tiresome": ["O khanlan"] },
+                animals: { "Alligator": ["agbaka"], "Ant": ["Abibi"], "Antelope": ["Uzo"], "Bat": ["Akogan"], "Bird": ["afianmhen"], "Butterfly": ["Akpakpa"], "Cat": ["onogbo"], "Chameleon": ["Alokhin"], "Chicken": ["?kh?"], "Chimpanzee": ["Osa"], "Cobra": ["Ebi"], "Crab": ["Ozi"], "Cricket": ["osen"], "Crocodile": ["agbaka"], "Deer": ["uzo"], "Dog": ["áwà"], "Earthworm": ["Ahulu"], "Elephant": ["Eni"], "Fly": ["i?khi??n"], "Frog": ["akil?"], "Goat": ["?bhe"], "Grasshopper": ["Ugbaf?n"], "Hawk": ["Ahi?nl?nkp?n"], "Horse": ["Akasi"], "Leopard": ["Atanakpa"], "Lion": ["Oduma"], "Monkey": ["emenlen"], "Pig": ["Esi"], "Porcupine": ["Qkhaen"], "Rabbit": ["Èluo"], "Rat": ["Of?n"], "Rooster": ["??kpà"], "Scorpion": ["Akpin(N)"], "Shark": ["Agbaka(N)"], "Sheep": ["Ohuan"], "Snake": ["?y?n"], "Sponge": ["Ihi?n"], "Squirrel": ["?tan"], "Tiger": ["Atanakpa"], "Tick": ["Arue"], "Tortoise": ["ewi"], "Turtle": ["ewi"], "Vulture": ["Udene"], "Woodpecker": ["?kpokporan"] },
+                food: { "Pan": ["Bread"], "Agua": ["Water"], "Manzana": ["Apple"] },
+                verbs_basic: { "To live": ["Dia"], "To die": ["Dokin"], "To sleep": ["Wele"], "To wake up": ["Re obowe"], "To run": ["Riune"], "To walk": ["Tete khian"], "To sit": ["Dotua"], "To stand": ["Gbano"], "To open": ["Tuje"], "To close": ["Khue"], "To read": ["Tie"], "To write": ["Ogbemi"], "To listen": ["Re eho"], "To talk": ["Talow"], "To call (phone)": ["Atie"], "To think": ["Eria"], "To remember": ["Yere"], "To forget": ["Bha yere"], "To wait": ["Modia"], "To help": ["Urekpa"], "To Accept": ["Mien"], "To Admit": ["Mienkue"], "To Agree": ["Aka"], "To Argue": ["Khon"], "To Arrive": ["Re se"], "To Ask": ["Ni"], "To assist": ["Nemhen"], "To be": ["aye"], "To begin": ["Da"], "To bought": ["ude"], "To build": ["bo"], "To build": ["la bon"], "To buy": ["de"], "To Call": ["Atie"], "To Arrive": ["Vae"], "To Come": ["Va de"], "To Care": ["Gbe"], "To Carried": ["Mu"], "To Catch": ["muen"], "To Choose": ["Ze"], "To Wash": ["Gbe"], "To Clean": ["Gbe"], "To Clean Clothes": ["Bolia"], "To complain": ["gui"], "To cook": ["nien"], "To cut": ["hian"], "To die": ["Yuu"], "To do": ["lu"], "To Eat": ["Le"], "To feel": ["fure"], "To Fight": ["Okhonlen"], "To find": ["Mienrie"], "To finish": ["fo"], "To follow": ["Deso"], "To forget": ["Ye"], "To Give": ["Re"], "To get": ["Ne"], "To go": ["Khian"], "To Went": ["Khian"], "To grew": ["Wanre"], "To had": ["mhon"], "To kill": ["gbe"], "To know": ["leen"], "To lead": ["oze"], "To learn": ["Lue"], "To leave": ["Khian"], "To left": ["sibi"], "To listen": ["hon"], "To look": ["ghe"], "To love": ["ihoemoegbe"], "To loves": ["hoemen"], "To make": ["waa"], "To open": ["Tuje"], "To protect": ["Odije"], "To reach": ["Sele"], "To receive": ["mien"], "To remain": ["Kere"], "To research": ["Tie"], "To respect": ["Ekpen"], "To return": ["Vae"], "To say": ["ta"], "To say": ["talow"], "To see": ["da ghe"], "To sell": ["khien"], "To send": ["Jie"], "To send": ["Ne"], "To serve": ["Ga"], "To sit": ["d'otua"], "To sleep": ["Wele"], "To speak": ["Talow"], "To spend": ["ria"], "To stand": ["gbano"], "To stay": ["dia"], "To stop": ["mundian"], "To stop": ["modia"], "To Take": ["Mien"], "To tell": ["Tama"], "To thank": ["obulu"], "To think": ["ria"], "To try": ["obo men dale"], "To understand": ["O mu men elo khuere"], "To use": ["Noo"], "To visit": ["Fe"], "To wait": ["Modia"], "To Walk": ["Tete Khian"], "To want": ["gwano"], "To Went": ["Yo"], "To work": ["iwenna"], "To Find": ["Mi"], "To able": ["ki da"] },
+                verbs_travel: { "Tired": ["Loe"], "Hungry": ["Ohame"], "Thirsty": ["Ohame"], "Sick": ["Ekhumun"], "Hot (feeling)": ["Ebekhua"], "Cold (feeling)": ["Ebefuofua"], "Scared": ["~"], "Angry": ["Osobhalo"], "Bored": ["~"], "Excited": ["Eghonghon"] },
+                nouns: { "Man": ["Okpea"], "Woman": ["Okhuo"], "Child": ["Omon"], "Friend": ["Onuele"], "Family": ["Ibokhan"], "House": ["Uwa"], "Car": ["Imotto"], "Work": ["Iwena"], "School": ["Uwebe"], "Water": ["Amen"], "Food": ["Ebale"], "Money": ["Igho"], "Time": ["Eghe"], "Day": ["Ede"], "Night": ["Ason"] },
+                questions: { "Who?": ["Khona?"], "What?": ["Ebela?"], "Where?": ["Je?"], "When?": ["Eghe la?"], "Why?": ["Bezele?"], "How?": ["Oni?"], "How much?": ["Eka?"], "How many?": ["Eka la?"], "Which?": ["Onia?"], "What does this mean?": ["Buwe roni ta?"] },
+                time: { "Morning": ["Ewie"], "Afternoon": ["Odanmen"], "Evening": ["Emuan"], "Night": ["Ason"], "Today": ["Elena"], "Tomorrow": ["Akho"], "Yesterday": ["Inode"], "Now": ["Nia"], "Later": ["Muegbe"], "Early": ["~"], "Late": ["~"], "Always": ["Egherebhe"], "Never": ["~"], "Sometimes": ["Egheso"], "Often": ["~"], "Usually": ["~"], "Breakfast": ["~"], "Lunch": ["~"], "Dinner": ["~"], "Snack": ["~"] },
+                commomverbs: { "To be": ["Khin"], "To have": ["Mhon"], "To go": ["Akhian"], "To come": ["Vae"], "To eat": ["lebae"], "To drink": ["Moi"], "To see": ["Da ghe"], "To hear": ["Hon"], "To say": ["Ota"], "To do": ["Lu"], "To make": ["Waa"], "To want": ["Gwano"], "To know": ["Len"], "To like": ["Oye"], "To need": ["Khonu"] },
+                family: { "Madre": ["Mother"], "Padre": ["Father"], "Hermano": ["Brother"] },
+                directions: { "In": ["Bhi/Ri bi"], "On": ["Bhi/Ri bi"], "At": ["Bhi/Ri bi"], "Under": ["Otole"], "Over": ["~"], "With": ["Deba"], "Without": ["~"], "Before": ["Ka"], "After": ["Okue gbe rha"], "Because": ["Ramude"], "And": ["Bi"], "Or": ["La"], "But": ["Sokpan"], "If": ["Kha"], "Then": ["~"] },
+                clothing: { "Camisa": ["Shirt"], "Pantalones": ["Pants"], "Zapatos": ["Shoes"] },
+                weather: { "Lluvia": ["Rain"], "Nieve": ["Snow"], "Viento": ["Wind"] },
+                body: { "Head": ["Uhonmon"], "Hair": ["Eto"], "Face": ["Elolo"], "Eye": ["Elo"], "Hair": ["Eto"], "Nose": ["Ihue"], "Mouth": ["Unun"], "Hand": ["Obo"], "Foot": ["Oe"], "Leg": ["Oe"], "Armpit": ["Elihele"], "butt": ["uwedin"], "cheek": ["iro"], "Elbow": ["Egogo obor"], "eyelashes": ["ihuenlo"], "Finger": ["Ikpianb?"], "Finger Nail": ["ihieonbo"], "Finger Nails": ["Ehienlen"], "Knee": ["ugogo"], "Neck": ["Uru"], "Shoulder": ["ijianb?"], "Stomach": ["?k?"], "Tooth": ["akon"], "Toe": ["ikpianw?"], "Waist": ["?kun"], "Wrist": ["Akhu"] },
+                school: { "Who bought the car": ["Obho ude onin imonto"], "Who bought the car": ["Obho de onin imonto"], "Discuss": ["Niyen"], "We will discuss the book tomorrow": ["Man  ha niyen onin ebe elena"], "He is strong": ["Daniel ole wowo"], "He will by water tomorrow": ["Ole ha de amen akho"], "He will by water tomorrow": ["Ole ha de amen ewie"], "Drive": ["Heen"], "I will drive to church": ["Men ha heen imonto akhian otue"], "Everyday": ["Edede"], "I eat food everyday": ["Men le ebae edede"], "Please give me the money": ["Wowo rie men onin igho"], "Preach": ["Wa osun"], "You cannot preach here": ["Uwe ii sabo wa osun enan"], "Run": ["Rie une"], "Please run home": ["Wowo rie une akhian uwa"], "Gathering": ["Sikoko"], "He is gathering the money": ["Ole sikoko onin igho"], "Dance": ["Gwe gbe ikhen"], "I cant dance": ["Men bha gwe gbe ikhen"], "Cold": ["Fofo"], "Today is cold": ["Elena ole fofo"], "Hat": ["Ukperu"], "I am wearing a hat": ["Men yo ukperu"], "He bought clothes": ["Ole de ikpon"], "He bought clothes": ["Ole ude ikpon"], "I will right a book": ["Men ha gben ebe"], "This place is very tight": ["Enan wowo keke"], "Tight": ["Keke"], "Very": ["Woo"], "Here": ["Enan"], "This place": ["Enan"], "Help": ["Urekpa"], "Help me carry this money": ["Rekpa men ka igho onin"], "Help me carry this money": ["Urekpa men ka igho onin"], "The": ["Onin"], "I dont accept": ["Men bha ka"], "I will not accept": ["Men ii ka"], "Dont accept": ["Aii ki"], "Do not accept": ["Aii ki"], "Accept": ["Ka"], "Close your mouth": ["Koko unun ose"], "Close your mouth": ["Koko unun no se e"], "Your mouth": ["Unun ose"], "Your mouth": ["Unun no se e"], "Mouth": ["Unun"], "Close it": ["Koko Ole"], "Your back": ["ikike"], "Before": ["ikike"], "Behind": ["ikike"], "To be tight": ["Keke"], "Count": ["Ka"], "Agree": ["Ka"], "Shut": ["Koko"], "Close": ["Koko"], "Do not laugh at her": ["A ii je ole"], "Do not laugh at him": ["A ii je ole"], "Dont": ["A ii"], "Do not": ["A ii"], "Mock": ["Je"], "Laugh": ["Je"], "Do not send me": ["A ii jie men"], "Errand": ["Uhunmun"], "Message": ["Uhunmun"], "Who sent you the message": ["Obho je uwe uhunmun"], "Send": ["Je"], "Whom": ["Obho"], "Who": ["Obho"], "I am going to esan class": ["Men khian uwaebe esan"], "Which place": ["Je bho"], "Where": ["Je"], "Where are you going": ["Je uwe khian"], "My money": ["igho men"], "My bag": ["Ekpa men"], "I am washing my bag": ["Men kpe ekpa men"], "I am": ["Men"], "Bag": ["Ekpa"], "Dishes": ["Ikpamaku"], "I am washing dishes": ["Men kpe ikpamaku"], "I am washing dishes": ["Men gbe ikpamaku"], "He is packing clothes": ["Ole hee ikpon"], "I am packing things": ["Men hee emin"], "What are you doing": ["Be uwe lu"], "We are carrying chairs": ["Man hee aga"], "We are carrying things": ["Man hee emin"], "Carry": ["Hee"], "Pack": ["Hee"], "Reject": ["Hee"], "Please do not reject the money": ["Wowo a ii hee onin igho"], "Clothing": ["Ukpon"], "Clothes": ["ikpon"], "I wash clothes": ["Men gbe ikpon"], "I wash clothes": ["Men hoo ikpon"], "Dishes": ["kpe"], "Washing": ["Gbe"], "Washing": ["hoo"], "Go": ["Yo"], "Today": ["Elena"], "Work": ["iwenna"], "Will": ["Ha"], "He will go to work today": ["Ole ha ya iwenna elena"], "Ring a bell": ["Fi egogo"], "Bell": ["Egogo"], "Teacher": ["Omaanebe"], "Our teacher is ringing the bell": ["Omaanebe man, fi onin egogo"], "Dont": ["A ii"], "Here": ["Enan"], "This place": ["Enan"], "Argue": ["Gbugen"], "Don not argue in this place": ["A ii gbugen bhi enan"], "I will worship you": ["Men ha ga uwe"], "I will serve you": ["Men ha ga uwe"], "I worship God": ["Men ga Ose"], "Worship": ["Ga"], "Serve": ["Ga"], "Ready": ["Ga"], "Cooked": ["Ga"], "The food is cooked": ["Onin Ebae ga"], "Buy": ["Ude"], "Buy": ["De"], "Chair": ["Aga"], "Today": ["Elena"], "My mother bought a chair today": ["Ine men de aga elena"], "My mother bought a chair today": ["Ine men ude aga elena"], "He is agile": ["Ole fifi"], "It": ["Ole"], "Pluck": ["Fan"], "Dont": ["A ii"], "Do not": ["A ii"], "Do not pluck it": ["A ii fan ole"], "The food is cold": ["Onin ebae fofo"], "Chilled": ["Fofo"], "Cold": ["Fofo"], "The": ["Onin"], "The water is cold": ["Onin amen fofo"], "He saw a bird": ["Ole da ghee afianmen"], "He sees a bird": ["Ole da ghee afianmen"], "Bird": ["Afianmen"], "See": ["Da ghee"], "I saw a bird": ["Men da ghee afianmen"], "Water": ["Amen"], "I am drinking water": ["Men won amen"], "Drink (Water)": ["Won"], "Drink (Alcohol)": ["Da"], "Anyon udin": ["Palm Wine"], "Uwe ba da anyon udin": ["Do you drink alcohol"], "Da Ede uwe re vade": ["Are you coming to the river"], "Vade": ["Coming"], "Khian": ["Going"], "Ede": ["River"], "Ole khian ede": ["He is going to the river"], "Tie": ["Reading"], "Tie": ["Read"], "Men khian la meen eto": ["I am going to make hair"], "Eto": ["Hair"], "Gben": ["Cut"], "Men khian la gben eto": ["I am going to cut hair"], "Ebe": ["book"], "Men tie ebe": ["I am reading a book"], "ii": ["will not"], "ii": ["wont"], "E ii yo uwaebe elena": ["They won't go to school today"], "E ii yo uwaebe elena": ["They are not going to school today"]}
+            };
 
-/* ---------- Data Versioning (BUMP THIS when you change seeds/categories) ---------- */
-const DATA_VERSION = '2025-08-25-a';
-const VERSION_KEY = 'lingo_words_version';
+            /* ---------- Data Versioning ---------- */
+            const DATA_VERSION = '2025-08-25-a';
+            const VERSION_KEY = 'lingo_words_version';
 
-/* ---------- Storage + migration from very old keys ----------- */
-(function migrateOld(){
-  const oldNums = load("lingo_numbers");
-  const oldOth  = load("lingo_others");
-  if (oldNums || oldOth){
-    const merged = JSON.parse(JSON.stringify(SEED));
-    if (oldNums) merged.numbers = oldNums;
-    if (oldOth)  merged.others  = oldOth;
-    save(LS.words, merged);
-    localStorage.removeItem("lingo_numbers");
-    localStorage.removeItem("lingo_others");
-  }
-})();
+            /* ---------- Storage + migration from very old keys ----------- */
+            (function migrateOld() {
+                const oldNums = load("lingo_numbers");
+                const oldOth = load("lingo_others");
+                if (oldNums || oldOth) {
+                    const merged = JSON.parse(JSON.stringify(SEED));
+                    if (oldNums) merged.numbers = oldNums;
+                    if (oldOth) merged.others = oldOth;
+                    save(LS.words, merged);
+                    localStorage.removeItem("lingo_numbers");
+                    localStorage.removeItem("lingo_others");
+                }
+            })();
 
-/* If version changed, overwrite saved words with SEED from code */
-const savedVersion = localStorage.getItem(VERSION_KEY);
-if (savedVersion !== DATA_VERSION) {
-  save(LS.words, SEED);
-  localStorage.setItem(VERSION_KEY, DATA_VERSION);
-}
+            /* If version changed, overwrite saved words with SEED from code */
+            const savedVersion = localStorage.getItem(VERSION_KEY);
+            if (savedVersion !== DATA_VERSION) {
+                save(LS.words, SEED);
+                localStorage.setItem(VERSION_KEY, DATA_VERSION);
+            }
 
-let WORDS = load(LS.words, SEED);
-CATS.forEach(c=>{ if(!WORDS[c]) WORDS[c]={}; });
-save(LS.words, WORDS);
+            let WORDS = load(LS.words, SEED);
+            CATS.forEach(c => { if (!WORDS[c]) WORDS[c] = {}; });
+            save(LS.words, WORDS);
 
-/* meta, missed, unlimited */
-let META = load(LS.meta, { xp:0, hearts:5, streak:0 });
-let MISSED = new Set(load(LS.missed, []));            // tokens "cat::key"
-let UNLIMITED = localStorage.getItem(LS.unlimited)==="1";
+            /* meta, missed, unlimited */
+            let META = load(LS.meta, { xp: 0, hearts: 5, streak: 0 });
+            let MISSED = new Set(load(LS.missed, []));            // tokens "cat::key"
+            let UNLIMITED = localStorage.getItem(LS.unlimited) === "1";
 
-/* ---------- Header + tabs ---------- */
-function updateBadges(){ $("#xp").textContent=META.xp; $("#hearts").textContent=META.hearts; $("#streak").textContent=META.streak; }
-updateBadges();
+            /* ---------- Header + tabs ---------- */
+            function updateBadges() { $("#xp").textContent = META.xp; $("#hearts").textContent = META.hearts; $("#streak").textContent = META.streak; }
+            updateBadges();
 
-const tabs = $$(".tab");
-tabs.forEach(t=>t.addEventListener("click", ()=>{
-  tabs.forEach(x=>x.classList.remove("active"));
-  t.classList.add("active");
-  ["learn","practice","dictionary"].forEach(id=>$("#"+id).classList.toggle("hidden", id!==t.dataset.tab));
-  if (t.dataset.tab==="dictionary") renderDictionary();
-}));
+            const tabs = $$(".tab");
+            tabs.forEach(t => t.addEventListener("click", () => {
+                tabs.forEach(x => x.classList.remove("active"));
+                t.classList.add("active");
+                ["learn", "practice", "dictionary"].forEach(id => $("#" + id).classList.toggle("hidden", id !== t.dataset.tab));
+                if (t.dataset.tab === "dictionary") renderDictionary();
+            }));
 
-$("#helpBtn").onclick=()=>{ const el=$("#helpModal"); el.classList.toggle("hidden"); if(!el.classList.contains("hidden")){ clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add("hidden"),5000); } };
+            $("#helpBtn").onclick = () => { const el = $("#helpModal"); el.classList.toggle("hidden"); if (!el.classList.contains("hidden")) { clearTimeout(el._t); el._t = setTimeout(() => el.classList.add("hidden"), 5000); } };
 
-/* HEART OVERRIDE CONTROLS */
-const unlimitedToggle = $("#unlimitedToggle");
-unlimitedToggle.checked = UNLIMITED;
-unlimitedToggle.onchange = ()=>{ UNLIMITED = unlimitedToggle.checked; localStorage.setItem(LS.unlimited, UNLIMITED?"1":"0"); toast(UNLIMITED?"Unlimited ON":"Unlimited OFF"); };
+            /* HEART OVERRIDE CONTROLS */
+            const unlimitedToggle = $("#unlimitedToggle");
+            unlimitedToggle.checked = UNLIMITED;
+            unlimitedToggle.onchange = () => { UNLIMITED = unlimitedToggle.checked; localStorage.setItem(LS.unlimited, UNLIMITED ? "1" : "0"); toast(UNLIMITED ? "Unlimited ON" : "Unlimited OFF"); };
 
-$("#btnHPlus1").onclick = ()=>{ META.hearts = Math.min(99, META.hearts+1); save(LS.meta,META); updateBadges(); sfxCorrect(); };
-$("#btnHPlus5").onclick = ()=>{ META.hearts = Math.min(99, META.hearts+5); save(LS.meta,META); updateBadges(); sfxCorrect(); };
-$("#btnHRefill").onclick = ()=>{ META.hearts = Math.max(META.hearts,5); save(LS.meta,META); updateBadges(); sfxCorrect(); };
+            $("#btnHPlus1").onclick = () => { META.hearts = Math.min(99, META.hearts + 1); save(LS.meta, META); updateBadges(); sfxCorrect(); };
+            $("#btnHPlus5").onclick = () => { META.hearts = Math.min(99, META.hearts + 5); save(LS.meta, META); updateBadges(); sfxCorrect(); };
+            $("#btnHRefill").onclick = () => { META.hearts = Math.max(META.hearts, 5); save(LS.meta, META); updateBadges(); sfxCorrect(); };
 
-/* RESET DATA BUTTON */
-$("#resetDataBtn").onclick = () => {
-  if (!confirm("Reset saved words, XP/hearts/streak, and missed list?")) return;
-  localStorage.removeItem(LS.words);
-  localStorage.removeItem(LS.meta);
-  localStorage.removeItem(LS.missed);
-  localStorage.setItem(VERSION_KEY, DATA_VERSION); // lock to current code version
-  save(LS.words, SEED); // restore from code
-  location.reload();
-};
+            /* RESET DATA BUTTON */
+            $("#resetDataBtn").onclick = () => {
+                if (!confirm("Reset saved words, XP/hearts/streak, and missed list?")) return;
+                localStorage.removeItem(LS.words);
+                localStorage.removeItem(LS.meta);
+                localStorage.removeItem(LS.missed);
+                localStorage.setItem(VERSION_KEY, DATA_VERSION); // lock to current code version
+                save(LS.words, SEED); // restore from code
+                location.reload();
+            };
 
-/* ---------- Fill dynamic category dropdowns ---------- */
-function fillCategorySelects(){
-  const opts = ['<option value="all">All</option>'].concat(CATS.map(c=>`<option value="${c}">${c}</option>`)).join("");
-  $("#catPracticeSel").innerHTML = opts;
-  $("#catFilter").innerHTML = opts;
-}
-fillCategorySelects();
+            /* ---------- Fill dynamic category dropdowns ---------- */
+            function fillCategorySelects() {
+                const opts = ['<option value="all">All</option>'].concat(CATS.map(c => `<option value="${c}">${c}</option>`)).join("");
+                $("#catPracticeSel").innerHTML = opts;
+                $("#catFilter").innerHTML = opts;
+            }
+            fillCategorySelects();
 
-/* ---------- Learn ---------- */
-$("#lookupBtn").onclick = doLookup;
-$("#lookupInput").addEventListener("keydown", e=>{ if(e.key==="Enter") doLookup(); });
-$("#viewBtn").onclick = ()=>{ switchTo("dictionary"); renderDictionary(); };
+            /* ---------- Learn ---------- */
+            $("#lookupBtn").onclick = doLookup;
+            $("#lookupInput").addEventListener("keydown", e => { if (e.key === "Enter") doLookup(); });
+            $("#viewBtn").onclick = () => { switchTo("dictionary"); renderDictionary(); };
 
-function doLookup(){
-  const q=$("#lookupInput").value.trim(); const out=$("#lookupResult");
-  if(!q){ out.style.display="none"; return; }
-  const res = lookupAny(q);
-  if(res.length){
-    out.innerHTML = res.map(r=>`
-      <div class="card">
-        <div><b>${escapeHtml(r.key)}</b> <span class="muted">(${r.cat})</span></div>
-        <div class="muted">= ${r.vals.map(m=>escapeHtml(m)).join(", ")}</div>
-      </div>`).join("");
-  }else{
-    out.innerHTML = `
-      <div class="card">
-        <div class="big">"${escapeHtml(q)}" not found.</div>
-        <div class="flex" style="margin-top:8px">
-          <button id="addFromLookup" class="btn primary" type="button">Add this word</button>
+            function doLookup() {
+                const q = $("#lookupInput").value.trim(); const out = $("#lookupResult");
+                if (!q) { out.style.display = "none"; return; }
+                const res = lookupAny(q);
+                if (res.length) {
+                    out.innerHTML = res.map(r => `
+          <div class="card">
+            <div><b>${escapeHtml(r.key)}</b> <span class="muted">(${r.cat})</span></div>
+            <div class="muted">= ${r.vals.map(m => escapeHtml(m)).join(", ")}</div>
+          </div>`).join("");
+                } else {
+                    out.innerHTML = `
+          <div class="card">
+            <div class="big">"${escapeHtml(q)}" not found.</div>
+            <div class="flex" style="margin-top:8px">
+              <button id="addFromLookup" class="btn primary" type="button">Add this word</button>
+            </div>
+          </div>`;
+                    $("#addFromLookup").onclick = () => openAddModal({ presetKey: q, presetMeanings: "" });
+                }
+                out.style.display = "block";
+            }
+            function lookupAny(q) {
+                const qLC = q.toLowerCase(); const out = [];
+                for (const cat of CATS) {
+                    for (const [k, v] of Object.entries(WORDS[cat] || {})) {
+                        if (k.toLowerCase() === qLC || v.some(m => m.toLowerCase() === qLC) ||
+                            k.toLowerCase().includes(qLC) || v.some(m => m.toLowerCase().includes(qLC))) {
+                            out.push({ cat, key: k, vals: v });
+                        }
+                    }
+                }
+                return out;
+            }
+
+            /* ---------- Practice (sessions) ---------- */
+            const state = { session: null };
+            let CURRENT = null;
+
+            $("#startPractice").onclick = () => startSession();
+            $("#skipBtn").onclick = () => skipChallenge();
+            $("#clearOrder").onclick = () => { $("#answerBank").innerHTML = ""; $$("#bank .chip").forEach(c => c.classList.remove("used")); };
+            $("#submitOrder").onclick = () => submitOrder();
+            /* NEW: Fill in the blank handlers */
+            $("#submitFill").onclick = () => submitFill();
+            $("#fillInput")?.addEventListener("keydown", e => { if (e.key === "Enter") submitFill(); });
+
+            $("#goReview").onclick = () => { $("#outModal").classList.add("hidden"); switchTo("dictionary"); renderDictionary(); };
+            $("#dismissOut").onclick = () => $("#outModal").classList.add("hidden");
+            document.addEventListener("keydown", e => { if (e.key.toLowerCase() === "s") skipChallenge(); });
+
+            function startSession() {
+                if (!UNLIMITED && META.hearts <= 0) { $("#outModal").classList.remove("hidden"); return; }
+                const cat = $("#catPracticeSel").value;
+                const mode = $("#modeSel").value;
+                const dir = $("#directionSel").value;
+                const pool = entriesFor(cat);
+                if (!pool.length) { toast("No words in this category."); return; }
+                state.session = { cat, mode, dir, remaining: shuffle(pool.map(([c, k]) => ({ cat: c, key: k }))) };
+                $("#challengeArea").style.display = "block";
+                nextChallenge();
+            }
+            function entriesFor(cat) {
+                const arr = [];
+                const cats = cat === "all" ? CATS : [cat];
+                cats.forEach(c => {
+                    for (const k of Object.keys(WORDS[c] || {})) arr.push([c, k]);
+                });
+                return arr;
+            }
+
+            /* Use only remaining entries for distractors so solved words never reappear */
+            function remainingEntriesFor(catLabel) {
+                if (state.session) {
+                    const wantAll = state.session.cat === "all";
+                    return state.session.remaining
+                        .filter(({ cat }) => wantAll || cat === state.session.cat)
+                        .map(({ cat, key }) => [cat, key]);
+                }
+                return entriesFor(catLabel);
+            }
+
+            function makeChallengeFrom(cur, meanings, type, direction, catLabel) {
+                const pool = remainingEntriesFor(catLabel);
+                const meaning = meanings[Math.random() * meanings.length | 0];
+
+                if (type === "mc") {
+                    if (direction === "en2key") {
+                        const distractors = pickDistractors(pool.map(([, k]) => k), cur.key, 3);
+                        return { type: "mc", prompt: `Translate: "${meaning}"`, options: shuffle([cur.key, ...distractors]), answer: cur.key, cur };
+                    } else {
+                        const allMeanings = pool.flatMap(([c, k]) => WORDS[c][k]);
+                        const distractors = pickDistractors(allMeanings, meaning, 3);
+                        return { type: "mc", prompt: `Translate: "${cur.key}"`, options: shuffle([meaning, ...distractors]), answer: meaning, cur };
+                    }
+                } else if (type === "order") {
+                    const tokens = (direction === "en2key" ? cur.key : meaning).split(/\s+/).filter(Boolean);
+                    const noise = ["y", "de", "la", "el", "un", "una", "muy", "por", "para", "con"];
+                    const bank = shuffle([...tokens, ...shuffle(noise).slice(0, Math.min(2, noise.length))]);
+                    return { type: "order", prompt: `Build: "${direction === 'en2key' ? meaning : cur.key}"`, tokens, bank, cur };
+                } else if (type === "fill") {
+                    if (direction === "en2key") {
+                        return { type: "fill", prompt: `Type the word for: "${meaning}"`, answers: [cur.key], cur };
+                    } else {
+                        return { type: "fill", prompt: `Translate: "${cur.key}"`, answers: meanings.slice(), cur };
+                    }
+                }
+            }
+
+            function renderChallenge(ch) {
+                CURRENT = ch;
+                $("#prompt").textContent = ch.prompt;
+                $("#mcWrap").classList.add("hidden");
+                $("#orderWrap").classList.add("hidden");
+                $("#fillWrap").classList.add("hidden");
+
+                if (ch.type === "mc") {
+                    const wrap = $("#mcWrap"); wrap.innerHTML = "";
+                    ch.options.forEach(opt => {
+                        const b = document.createElement("button"); b.className = "answerChoice"; b.type = "button"; b.textContent = opt;
+                        b.onclick = () => gradeMC(b, opt === ch.answer, ch.cur);
+                        wrap.appendChild(b);
+                    });
+                    wrap.classList.remove("hidden");
+                } else if (ch.type === "order") {
+                    $("#bank").innerHTML = ""; $("#answerBank").innerHTML = "";
+                    ch.bank.forEach(tok => {
+                        const c = document.createElement("button"); c.className = "chip"; c.type = "button"; c.textContent = tok;
+                        c.onclick = () => { c.classList.add("used"); const pick = document.createElement("span"); pick.className = "chip"; pick.textContent = tok; pick.dataset.tok = tok; $("#answerBank").appendChild(pick); };
+                        $("#bank").appendChild(c);
+                    });
+                    $("#orderWrap").classList.remove("hidden");
+                } else if (ch.type === "fill") {
+                    $("#fillInput").value = "";
+                    $("#fillHint").style.display = "none";
+                    $("#fillWrap").classList.remove("hidden");
+                    setTimeout(() => $("#fillInput").focus(), 0);
+                    // optional hint: first letter
+                    const first = ch.answers[0]?.trim()?.[0] ?? "";
+                    if (first) {
+                        const h = $("#fillHint");
+                        h.textContent = `Hint: starts with "${first}"`;
+                        h.style.display = "block";
+                    }
+                }
+            }
+
+            /* Flash feedback for MC, then continue */
+            function gradeMC(btn, isCorrect, cur) {
+                for (const b of $$("#mcWrap .answerChoice")) b.disabled = true;
+                btn.classList.add(isCorrect ? "correct" : "wrong");
+                setTimeout(() => { isCorrect ? onCorrect(cur) : onWrong(cur); }, 150);
+            }
+
+            function submitOrder() {
+                if (!CURRENT) return;
+                const given = Array.from($("#answerBank").children).map(x => x.dataset.tok).join(" ");
+                const correct = CURRENT.tokens.join(" ");
+                if (given === correct) { onCorrect(CURRENT.cur, true); } else { onWrong(CURRENT.cur, true, correct); }
+            }
+
+            /* NEW: Fill submit */
+            function submitFill() {
+                if (!CURRENT || CURRENT.type !== "fill") return;
+                const user = $("#fillInput").value;
+                if (!user.trim()) return;
+                const good = CURRENT.answers.map(norm);
+                const ok = good.includes(norm(user));
+                if (ok) {
+                    onCorrect(CURRENT.cur, true);
+                } else {
+                    const corr = CURRENT.answers.join(", ");
+                    onWrong(CURRENT.cur, true, corr);
+                }
+            }
+
+            function onCorrect(cur, orderOrFill = false) {
+                META.xp += orderOrFill ? 12 : 10;
+                META.streak += 1;
+                if (META.streak % 5 === 0 && !UNLIMITED) META.hearts = Math.min(99, META.hearts + 1);
+                save(LS.meta, META); updateBadges(); sfxCorrect();
+                toast(orderOrFill ? "¡Perfecto! +12 XP" : "+10 XP");
+                // remove from session & from MISSED
+                state.session.remaining = state.session.remaining.filter(x => !(x.cat === cur.cat && x.key === cur.key));
+                MISSED.delete(`${cur.cat}::${cur.key}`); save(LS.missed, Array.from(MISSED));
+                setTimeout(nextChallenge, 500);
+            }
+            function onWrong(cur, orderOrFill = false, corr = null) {
+                if (!UNLIMITED) { META.hearts = Math.max(0, META.hearts - 1); }
+                META.streak = 0; save(LS.meta, META); updateBadges(); sfxWrong();
+                MISSED.add(`${cur.cat}::${cur.key}`); save(LS.missed, Array.from(MISSED));
+                toast(orderOrFill ? `Answer: ${corr}` : "Not quite.");
+                setTimeout(() => { if (META.hearts <= 0 && !UNLIMITED) $("#outModal").classList.remove("hidden"); nextChallenge(); }, orderOrFill ? 900 : 600);
+            }
+            function skipChallenge() { if (!state.session) return; META.streak = 0; save(LS.meta, META); updateBadges(); toast("Skipped"); setTimeout(nextChallenge, 120); }
+
+            function nextChallenge() {
+                const s = state.session; if (!s) return;
+                updateProgressNote();
+                if (!s.remaining.length) {
+                    sfxComplete();
+                    $("#doneText").textContent = `You've completed all words in "${s.cat}"!`;
+                    $("#doneModal").classList.remove("hidden");
+                    return;
+                }
+                const cur = s.remaining[0];
+                const meanings = WORDS[cur.cat][cur.key];
+                renderChallenge(makeChallengeFrom(cur, meanings, s.mode, s.dir, s.cat));
+            }
+            function updateProgressNote() {
+                const s = state.session; if (!s) { $("#progressNote").textContent = ""; return; }
+                const total = entriesFor(s.cat).length;
+                const left = s.remaining.length;
+                $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total} • Hearts: ${META.hearts}${UNLIMITED ? " (Unlimited)" : ""}`;
+            }
+
+            /* ---------- Dictionary (view/add/edit/delete) + Review for hearts ---------- */
+            $("#catFilter").onchange = renderDictionary;
+            $("#addBtn").onclick = () => openAddModal();
+            $("#exportBtn").onclick = exportJson;
+            $("#importFile").onchange = importJson;
+            $("#closeReview").onclick = () => $("#reviewModal").classList.add("hidden");
+
+            function renderDictionary() {
+                renderReviewCard();
+                const cat = $("#catFilter").value; const list = $("#dictList"); list.innerHTML = "";
+                let items = [];
+                const cats = cat === "all" ? CATS : [cat];
+                cats.forEach(c => {
+                    for (const [k, v] of Object.entries(WORDS[c] || {})) items.push({ cat: c, k, v });
+                });
+                if (!items.length) { list.innerHTML = `<div class="card center muted">No entries yet.</div>`; return; }
+                items.sort((a, b) => a.k.localeCompare(b.k));
+                items.forEach(({ cat, k, v }) => {
+                    const el = document.createElement("div"); el.className = "card";
+                    el.innerHTML = `
+          <div class="flex">
+            <div class="big" style="font-weight:800">${escapeHtml(k)}</div>
+            <span class="pill">${cat}</span>
+            <div class="spacer"></div>
+            <button class="btn ghost editBtn" type="button">Edit</button>
+            <button class="btn ghost delBtn" type="button">Delete</button>
+          </div>
+          <div class="muted" style="margin-top:4px">${v.map(x => escapeHtml(x)).join(", ")}</div>
+        `;
+                    el.querySelector(".editBtn").onclick = () => openAddModal({ cat, presetKey: k, presetMeanings: v.join(", ") });
+                    el.querySelector(".delBtn").onclick = () => {
+                        if (!confirm(`Delete "${k}" in ${cat}?`)) return;
+                        delete WORDS[cat][k]; save(LS.words, WORDS); renderDictionary(); toast("Deleted");
+                    };
+                    list.appendChild(el);
+                });
+            }
+            function renderReviewCard() {
+                const all = WORDS; const missedArr = Array.from(MISSED).map(s => s.split("::")).filter(([c, k]) => all[c] && all[c][k]);
+                const card = $("#reviewCard"), list = $("#reviewList");
+                if (!missedArr.length) { card.style.display = "none"; return; }
+                card.style.display = "block"; list.innerHTML = "";
+                missedArr.forEach(([cat, key]) => {
+                    const meanings = all[cat][key];
+                    const row = document.createElement("div"); row.className = "reviewRow";
+                    row.innerHTML = `
+          <div><b>${escapeHtml(key)}</b> <span class="muted">(${cat})</span> <span class="muted">= ${meanings.map(escapeHtml).join(", ")}</span></div>
+          <div class="rowC">
+            <button class="btn primary" type="button">Practice</button>
+            <button class="btn ghost" type="button">Remove</button>
+          </div>`;
+                    const [practiceBtn, removeBtn] = row.querySelectorAll("button");
+                    practiceBtn.onclick = () => openReview(cat, key, meanings);
+                    removeBtn.onclick = () => { MISSED.delete(`${cat}::${key}`); save(LS.missed, Array.from(MISSED)); renderReviewCard(); };
+                    list.appendChild(row);
+                });
+            }
+            function openReview(cat, key, meanings) {
+                $("#reviewPrompt").textContent = `Review: Translate "${key}" (${cat})`;
+                const allMeanings = Object.values(WORDS).flatMap(catObj => Object.values(catObj)).flat();
+                const target = meanings[Math.random() * meanings.length | 0];
+                const distractors = pickDistractors(allMeanings, target, 3);
+                const options = shuffle([target, ...distractors]);
+                const wrap = $("#reviewChoices"); wrap.innerHTML = "";
+                options.forEach(opt => {
+                    const b = document.createElement("button"); b.className = "answerChoice"; b.type = "button"; b.textContent = opt;
+                    b.onclick = () => {
+                        if (opt === target) {
+                            META.hearts = Math.min(99, META.hearts + 1); save(LS.meta, META); updateBadges();
+                            MISSED.delete(`${cat}::${key}`); save(LS.missed, Array.from(MISSED));
+                            sfxCorrect(); toast("+1 ❤ from review!"); $("#reviewModal").classList.add("hidden"); renderReviewCard();
+                        } else { sfxWrong(); toast("Try again"); }
+                    };
+                    wrap.appendChild(b);
+                });
+                $("#reviewModal").classList.remove("hidden");
+            }
+
+            function openAddModal(opts = {}) {
+                const { cat = CATS[0], presetKey = "", presetMeanings = "" } = opts;
+                const modal = document.createElement("div"); modal.className = "toast"; modal.style.maxWidth = "720px"; modal.style.width = "calc(100% - 32px)";
+                modal.innerHTML = `
+        <div class="big" style="font-weight:900;margin-bottom:8px">Add / Edit Word</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
+          <label>Category
+            <select id="mCat">${CATS.map(c => `<option value="${c}">${c}</option>`).join("")}</select>
+          </label>
+          <label>Word (key)
+            <input id="mKey" type="text" placeholder="e.g., Hola" />
+          </label>
+          <label style="grid-column:1 / -1">Meanings (comma separated)
+            <input id="mVals" type="text" placeholder="e.g., Hello, Hi" />
+          </label>
         </div>
-      </div>`;
-    $("#addFromLookup").onclick = ()=>openAddModal({ presetKey:q, presetMeanings:"" });
-  }
-  out.style.display="block";
-}
-function lookupAny(q){
-  const qLC=q.toLowerCase(); const out=[];
-  for(const cat of CATS){ for(const [k,v] of Object.entries(WORDS[cat]||{})){
-    if (k.toLowerCase()===qLC || v.some(m=>m.toLowerCase()===qLC) ||
-        k.toLowerCase().includes(qLC) || v.some(m=>m.toLowerCase().includes(qLC))){
-      out.push({cat, key:k, vals:v});
-    }
-  }}
-  return out;
-}
+        <div class="flex" style="margin-top:8px">
+          <button id="mSave" class="btn primary" type="button">Save</button>
+          <button id="mCancel" class="btn" type="button">Cancel</button>
+        </div>`;
+                document.body.appendChild(modal);
+                $("#mCat", modal).value = cat; $("#mKey", modal).value = presetKey; $("#mVals", modal).value = presetMeanings;
+                $("#mCancel", modal).onclick = () => modal.remove();
+                $("#mSave", modal).onclick = () => {
+                    const c = $("#mCat", modal).value; const k = $("#mKey", modal).value.trim();
+                    const vals = $("#mVals", modal).value.split(",").map(s => s.trim()).filter(Boolean);
+                    if (!k || !vals.length) { alert("Please enter a word and at least one meaning."); return; }
+                    if (!WORDS[c]) WORDS[c] = {};
+                    WORDS[c][k] = vals; save(LS.words, WORDS); modal.remove(); renderDictionary(); toast("Saved");
+                };
+            }
+            function exportJson() { const blob = new Blob([JSON.stringify(WORDS, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "lingo-words.json"; a.click(); }
+            function importJson(e) {
+                const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+                r.onload = () => {
+                    try {
+                        const obj = JSON.parse(r.result);
+                        if (obj && typeof obj === "object") {
+                            WORDS = obj; CATS.forEach(c => { if (!WORDS[c]) WORDS[c] = {}; }); save(LS.words, WORDS); renderDictionary(); toast("Imported");
+                        } else alert("Invalid JSON.");
+                    } catch { alert("Failed to parse JSON."); }
+                };
+                r.readAsText(f);
+            }
 
-/* ---------- Practice (sessions, NO-REPEAT DISTRACTORS, hearts) ---------- */
-const state = { session:null };
-let CURRENT = null;
+            /* ---------- Done modal actions ---------- */
+            $("#chooseAnother").onclick = () => { $("#doneModal").classList.add("hidden"); switchTo("practice"); };
+            $("#repeatSession").onclick = () => { if (!state.session) { $("#doneModal").classList.add("hidden"); return; } const s = state.session; s.remaining = shuffle(entriesFor(s.cat).map(([c, k]) => ({ cat: c, key: k }))); $("#doneModal").classList.add("hidden"); nextChallenge(); };
+            $("#closeDone").onclick = () => $("#doneModal").classList.add("hidden");
 
-$("#startPractice").onclick = ()=>startSession();
-$("#skipBtn").onclick = ()=>skipChallenge();
-$("#clearOrder").onclick = ()=>{ $("#answerBank").innerHTML=""; $$("#bank .chip").forEach(c=>c.classList.remove("used")); };
-$("#submitOrder").onclick = ()=>submitOrder();
-$("#goReview").onclick = ()=>{ $("#outModal").classList.add("hidden"); switchTo("dictionary"); renderDictionary(); };
-$("#dismissOut").onclick = ()=>$("#outModal").classList.add("hidden");
-document.addEventListener("keydown", e=>{ if(e.key.toLowerCase()==="s") skipChallenge(); });
+            /* ---------- Switch helper ---------- */
+            function switchTo(id) {
+                const tabsEls = $$(".tab");
+                tabsEls.forEach(x => x.classList.toggle("active", x.dataset.tab === id));
+                ["learn", "practice", "dictionary"].forEach(sec => $("#" + sec).classList.toggle("hidden", sec !== id));
+            }
 
-function startSession(){
-  if (!UNLIMITED && META.hearts<=0){ $("#outModal").classList.remove("hidden"); return; }
-  const cat=$("#catPracticeSel").value;
-  const mode=$("#modeSel").value;
-  const dir=$("#directionSel").value;
-  const pool = entriesFor(cat);
-  if(!pool.length){ toast("No words in this category."); return; }
-  state.session={ cat, mode, dir, remaining: shuffle(pool.map(([c,k])=>({cat:c,key:k}))) };
-  $("#challengeArea").style.display="block";
-  nextChallenge();
-}
-function entriesFor(cat){
-  const arr=[];
-  const cats = cat==="all" ? CATS : [cat];
-  cats.forEach(c=>{
-    for(const k of Object.keys(WORDS[c]||{})) arr.push([c,k]);
-  });
-  return arr;
-}
+            /* ---------- Initial UI ---------- */
+            function init() {
+                updateBadges();
+                renderDictionary();
+            }
+            init();
 
-/* Use only remaining entries for distractors so solved words never reappear */
-function remainingEntriesFor(catLabel){
-  if (state.session){
-    const wantAll = state.session.cat === "all";
-    return state.session.remaining
-      .filter(({cat}) => wantAll || cat === state.session.cat)
-      .map(({cat, key}) => [cat, key]);
-  }
-  return entriesFor(catLabel);
-}
-
-function makeChallengeFrom(cur, meanings, type, direction, catLabel){
-  const pool = remainingEntriesFor(catLabel);
-  const meaning = meanings[Math.random()*meanings.length|0];
-
-  if(type==="mc"){
-    if(direction==="en2key"){
-      const distractors = pickDistractors(pool.map(([,k])=>k), cur.key, 3);
-      return { type:"mc", prompt:`Translate: "${meaning}"`, options:shuffle([cur.key,...distractors]), answer:cur.key, cur };
-    } else {
-      const allMeanings = pool.flatMap(([c,k])=>WORDS[c][k]);
-      const distractors = pickDistractors(allMeanings, meaning, 3);
-      return { type:"mc", prompt:`Translate: "${cur.key}"`, options:shuffle([meaning,...distractors]), answer:meaning, cur };
-    }
-  }else{
-    const tokens = (direction==="en2key"?cur.key:meaning).split(/\s+/).filter(Boolean);
-    const noise = ["y","de","la","el","un","una","muy","por","para","con"];
-    const bank = shuffle([...tokens, ...shuffle(noise).slice(0, Math.min(2, noise.length))]);
-    return { type:"order", prompt:`Build: "${direction==='en2key'?meaning:cur.key}"`, tokens, bank, cur };
-  }
-}
-
-function renderChallenge(ch){
-  CURRENT = ch;
-  $("#prompt").textContent = ch.prompt;
-  $("#mcWrap").classList.add("hidden"); $("#orderWrap").classList.add("hidden");
-  if(ch.type==="mc"){
-    const wrap=$("#mcWrap"); wrap.innerHTML="";
-    ch.options.forEach(opt=>{
-      const b=document.createElement("button"); b.className="answerChoice"; b.type="button"; b.textContent=opt;
-      b.onclick=()=>gradeMC(b, opt===ch.answer, ch.cur);
-      wrap.appendChild(b);
-    });
-    wrap.classList.remove("hidden");
-  }else{
-    $("#bank").innerHTML=""; $("#answerBank").innerHTML="";
-    ch.bank.forEach(tok=>{
-      const c=document.createElement("button"); c.className="chip"; c.type="button"; c.textContent=tok;
-      c.onclick=()=>{ c.classList.add("used"); const pick=document.createElement("span"); pick.className="chip"; pick.textContent=tok; pick.dataset.tok=tok; $("#answerBank").appendChild(pick); };
-      $("#bank").appendChild(c);
-    });
-    $("#orderWrap").classList.remove("hidden");
-  }
-}
-
-/* ✅ NEW: Flash green/red on click, then advance after ~450ms */
-function gradeMC(btn, isCorrect, cur){
-  // lock all options so the user can’t click more while we flash feedback
-  for(const b of $$("#mcWrap .answerChoice")) b.disabled = true;
-
-  // add the visual feedback class to the clicked button
-  btn.classList.add(isCorrect ? "correct" : "wrong");
-
-  // wait a beat so the user sees the color, then continue
-  setTimeout(() => {
-    if (isCorrect) {
-      onCorrect(cur);   // will render the next challenge
-    } else {
-      onWrong(cur);     // shows wrong feedback & then continues
-    }
-  }, 150);
-}
-
-function submitOrder(){
-  if (!CURRENT) return;
-  const given=Array.from($("#answerBank").children).map(x=>x.dataset.tok).join(" ");
-  const correct=CURRENT.tokens.join(" ");
-  if(given===correct){ onCorrect(CURRENT.cur,true); } else { onWrong(CURRENT.cur,true, correct); }
-}
-function onCorrect(cur, order=false){
-  META.xp += order?12:10; META.streak += 1; if(META.streak%5===0 && !UNLIMITED) META.hearts = Math.min(99, META.hearts+1);
-  save(LS.meta,META); updateBadges(); sfxCorrect(); toast(order?"¡Perfecto! +12 XP":"+10 XP");
-  // remove from session & from MISSED
-  state.session.remaining = state.session.remaining.filter(x=>!(x.cat===cur.cat && x.key===cur.key));
-  MISSED.delete(`${cur.cat}::${cur.key}`); save(LS.missed, Array.from(MISSED));
-  setTimeout(nextChallenge, 500);
-}
-function onWrong(cur, order=false, corr=null){
-  if(!UNLIMITED){ META.hearts = Math.max(0, META.hearts-1); }
-  META.streak=0; save(LS.meta,META); updateBadges(); sfxWrong();
-  MISSED.add(`${cur.cat}::${cur.key}`); save(LS.missed, Array.from(MISSED));
-  toast(order?`Answer: ${corr}`:"Not quite.");
-  setTimeout(()=>{ if(META.hearts<=0 && !UNLIMITED) $("#outModal").classList.remove("hidden"); nextChallenge(); }, order?900:600);
-}
-function skipChallenge(){ if(!state.session) return; META.streak=0; save(LS.meta,META); updateBadges(); toast("Skipped"); setTimeout(nextChallenge,120); }
-
-function nextChallenge(){
-  const s=state.session; if(!s) return;
-  updateProgressNote();
-  if(!s.remaining.length){
-    sfxComplete();
-    $("#doneText").textContent = `You've completed all words in "${s.cat}"!`;
-    $("#doneModal").classList.remove("hidden");
-    return;
-  }
-  const cur=s.remaining[0];
-  const meanings = WORDS[cur.cat][cur.key];
-  renderChallenge(makeChallengeFrom(cur, meanings, s.mode, s.dir, s.cat));
-}
-function updateProgressNote(){
-  const s=state.session; if(!s){ $("#progressNote").textContent=""; return; }
-  const total = entriesFor(s.cat).length;
-  const left = s.remaining.length;
-  $("#progressNote").textContent = `Category: ${s.cat} • Remaining: ${left}/${total} • Hearts: ${META.hearts}${UNLIMITED?" (Unlimited)":""}`;
-}
-
-/* ---------- Dictionary (view/add/edit/delete) + Review for hearts ---------- */
-$("#catFilter").onchange = renderDictionary;
-$("#addBtn").onclick = ()=>openAddModal();
-$("#exportBtn").onclick = exportJson;
-$("#importFile").onchange = importJson;
-$("#closeReview").onclick = ()=>$("#reviewModal").classList.add("hidden");
-
-function renderDictionary(){
-  renderReviewCard();
-
-  const cat=$("#catFilter").value; const list=$("#dictList"); list.innerHTML="";
-  let items=[];
-  const cats = cat==="all"?CATS:[cat];
-  cats.forEach(c=>{
-    for(const [k,v] of Object.entries(WORDS[c]||{})) items.push({cat:c, k, v});
-  });
-  if(!items.length){ list.innerHTML=`<div class="card center muted">No entries yet.</div>`; return; }
-  items.sort((a,b)=>a.k.localeCompare(b.k));
-  items.forEach(({cat,k,v})=>{
-    const el=document.createElement("div"); el.className="card";
-    el.innerHTML=`
-      <div class="flex">
-        <div class="big" style="font-weight:800">${escapeHtml(k)}</div>
-        <span class="pill">${cat}</span>
-        <div class="spacer"></div>
-        <button class="btn ghost editBtn" type="button">Edit</button>
-        <button class="btn ghost delBtn" type="button">Delete</button>
-      </div>
-      <div class="muted" style="margin-top:4px">${v.map(x=>escapeHtml(x)).join(", ")}</div>
-    `;
-    el.querySelector(".editBtn").onclick=()=>openAddModal({cat, presetKey:k, presetMeanings:v.join(", ")});
-    el.querySelector(".delBtn").onclick=()=>{
-      if(!confirm(`Delete "${k}" in ${cat}?`)) return;
-      delete WORDS[cat][k]; save(LS.words,WORDS); renderDictionary(); toast("Deleted");
-    };
-    list.appendChild(el);
-  });
-}
-function renderReviewCard(){
-  const all=WORDS; const missedArr=Array.from(MISSED).map(s=>s.split("::")).filter(([c,k])=>all[c]&&all[c][k]);
-  const card=$("#reviewCard"), list=$("#reviewList");
-  if(!missedArr.length){ card.style.display="none"; return; }
-  card.style.display="block"; list.innerHTML="";
-  missedArr.forEach(([cat,key])=>{
-    const row=document.createElement("div"); row.className="reviewRow";
-    const meanings=all[cat][key];
-    row.innerHTML=`
-      <div><b>${escapeHtml(key)}</b> <span class="muted">(${cat})</span> <span class="muted">= ${meanings.map(escapeHtml).join(", ")}</span></div>
-      <div class="rowC">
-        <button class="btn primary" type="button">Practice</button>
-        <button class="btn ghost" type="button">Remove</button>
-      </div>`;
-    const [practiceBtn, removeBtn]=row.querySelectorAll("button");
-    practiceBtn.onclick=()=>openReview(cat,key,meanings);
-    removeBtn.onclick=()=>{ MISSED.delete(`${cat}::${key}`); save(LS.missed,Array.from(MISSED)); renderReviewCard(); };
-    list.appendChild(row);
-  });
-}
-function openReview(cat,key,meanings){
-  $("#reviewPrompt").textContent=`Review: Translate "${key}" (${cat})`;
-  const allMeanings=Object.values(WORDS).flatMap(catObj=>Object.values(catObj)).flat();
-  const target=meanings[Math.random()*meanings.length|0];
-  const distractors=pickDistractors(allMeanings,target,3);
-  const options=shuffle([target,...distractors]);
-  const wrap=$("#reviewChoices"); wrap.innerHTML="";
-  options.forEach(opt=>{
-    const b=document.createElement("button"); b.className="answerChoice"; b.type="button"; b.textContent=opt;
-    b.onclick=()=>{
-      if(opt===target){
-        META.hearts = Math.min(99, META.hearts+1); save(LS.meta,META); updateBadges();
-        MISSED.delete(`${cat}::${key}`); save(LS.missed,Array.from(MISSED));
-        sfxCorrect(); toast("+1 ❤ from review!"); $("#reviewModal").classList.add("hidden"); renderReviewCard();
-      }else{ sfxWrong(); toast("Try again"); }
-    };
-    wrap.appendChild(b);
-  });
-  $("#reviewModal").classList.remove("hidden");
-}
-
-function openAddModal(opts={}){
-  const {cat=CATS[0], presetKey="", presetMeanings=""}=opts;
-  const modal=document.createElement("div"); modal.className="toast"; modal.style.maxWidth="720px"; modal.style.width="calc(100% - 32px)";
-  modal.innerHTML=`
-    <div class="big" style="font-weight:900;margin-bottom:8px">Add / Edit Word</div>
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
-      <label>Category
-        <select id="mCat">${CATS.map(c=>`<option value="${c}">${c}</option>`).join("")}</select>
-      </label>
-      <label>Word (key)
-        <input id="mKey" type="text" placeholder="e.g., Hola" />
-      </label>
-      <label style="grid-column:1 / -1">Meanings (comma separated)
-        <input id="mVals" type="text" placeholder="e.g., Hello, Hi" />
-      </label>
-    </div>
-    <div class="flex" style="margin-top:8px">
-      <button id="mSave" class="btn primary" type="button">Save</button>
-      <button id="mCancel" class="btn" type="button">Cancel</button>
-    </div>`;
-  document.body.appendChild(modal);
-  $("#mCat",modal).value=cat; $("#mKey",modal).value=presetKey; $("#mVals",modal).value=presetMeanings;
-  $("#mCancel",modal).onclick=()=>modal.remove();
-  $("#mSave",modal).onclick=()=>{
-    const c=$("#mCat",modal).value; const k=$("#mKey",modal).value.trim();
-    const vals=$("#mVals",modal).value.split(",").map(s=>s.trim()).filter(Boolean);
-    if(!k||!vals.length){ alert("Please enter a word and at least one meaning."); return; }
-    WORDS[c][k]=vals; save(LS.words,WORDS); modal.remove(); renderDictionary(); toast("Saved");
-  };
-}
-function exportJson(){ const blob=new Blob([JSON.stringify(WORDS,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="lingo-words.json"; a.click(); }
-function importJson(e){
-  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
-  r.onload=()=>{ try{ const obj=JSON.parse(r.result); if(obj && typeof obj==="object"){ WORDS=obj; CATS.forEach(c=>{ if(!WORDS[c]) WORDS[c]={}; }); save(LS.words,WORDS); renderDictionary(); toast("Imported"); } else alert("Invalid JSON."); }catch{ alert("Failed to parse JSON."); } };
-  r.readAsText(f);
-}
-
-/* ---------- Done modal actions ---------- */
-$("#chooseAnother").onclick=()=>{ $("#doneModal").classList.add("hidden"); switchTo("practice"); };
-$("#repeatSession").onclick=()=>{ if(!state.session){ $("#doneModal").classList.add("hidden"); return; } const s=state.session; s.remaining=shuffle(entriesFor(s.cat).map(([c,k])=>({cat:c,key:k}))); $("#doneModal").classList.add("hidden"); nextChallenge(); };
-$("#closeDone").onclick=()=>$("#doneModal").classList.add("hidden");
-
-/* ---------- Switch helper ---------- */
-function switchTo(id){
-  tabs.forEach(x=>x.classList.toggle("active", x.dataset.tab===id));
-  ["learn","practice","dictionary"].forEach(sec=>$("#"+sec).classList.toggle("hidden", sec!==id));
-}
-
-/* ---------- Initial UI ---------- */
-function init(){
-  updateBadges();
-  renderDictionary();
-}
-init();
-
-}); // DOMContentLoaded
+        }); // DOMContentLoaded
     </script>
 </body>
 </html>
