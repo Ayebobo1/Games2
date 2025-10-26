@@ -1,221 +1,489 @@
-﻿﻿<!doctype html>
+﻿﻿
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Lingo Dictionary — Duolingo-style (Flash MC Feedback)</title>
-<style>
-  :root{
-    --bg:#0b1220; --panel:#0f172a; --ink:#e2e8f0; --muted:#94a3b8;
-    --card:#0b1325; --line:#1f2a44; --accent1:#22d3ee; --accent2:#34d399;
-    --warn:#ef4444; --ok:#06d6a0; --gold:#facc15;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
-  button,input,select,label{pointer-events:auto}
-  .wrap{max-width:980px;margin:0 auto;padding:16px}
-  .hero{background: linear-gradient(180deg,#132038 0%, #0f172a 100%);border:1px solid var(--line); border-radius:16px; padding:16px 16px 0; margin-bottom:12px;}
-  .title{ margin:0; font-size:22px; font-weight:900; background:linear-gradient(90deg,var(--accent2),var(--accent1)); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .tabs{ display:flex; gap:8px; margin:12px 0 0 }
-  .tab{ flex:1; text-align:center; padding:10px; cursor:pointer; border:1px solid var(--line); color:var(--ink); background:var(--panel); border-radius:12px 12px 0 0; font-weight:700 }
-  .tab.active{ background:linear-gradient(180deg,#152240,#0f172a); border-bottom-color:transparent }
-  .panel{ border:1px solid var(--line); border-top:none; background:var(--panel); padding:16px; border-radius:0 12px 12px 12px;}
-  .row{ display:flex; gap:10px; flex-wrap:wrap }
-  input[type="text"], select{ background:var(--card); border:1px solid var(--line); color:var(--ink); border-radius:10px; padding:10px 12px; outline:none; width:100%;}
-  .btn{ padding:10px 14px; border:none; border-radius:10px; background:#1e293b; color:var(--ink); cursor:pointer }
-  .btn.primary{ background:linear-gradient(90deg,var(--accent2),var(--accent1)); color:#0b1020; font-weight:800 }
-  .btn.ghost{ background:transparent; border:1px solid var(--line) }
-  .pill{ padding:6px 10px; border:1px solid var(--line); background:var(--card); border-radius:999px; font-size:13px }
-  .grid{ display:grid; gap:10px }
-  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px }
-  .muted{ color:var(--muted) }
-  .badge{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px }
-  .badge.ok{ background:rgba(6,214,160,.12); color:var(--ok) }
-  .badge.warn{ background:rgba(239,68,68,.12); color:var(--warn) }
-  .badge.gold{ background:rgba(250,204,21,.12); color:var(--gold) }
-  .toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; background:#111827; color:#e5e7eb; padding:10px 14px; border-radius:10px; border:1px solid #1f2937; box-shadow:0 10px 30px rgba(0,0,0,.35); z-index:20 }
-  .flex{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-  .spacer{ flex:1 }
-  .hidden{ display:none !important }
-  /* overlays can't intercept when hidden */
-  .toast.hidden, .modal.hidden{ pointer-events:none !important; }
-  .center{ text-align:center }
-  .big{ font-size:18px }
-  @media (max-width:600px){ .title{font-size:20px} }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lingo Dictionary — Duolingo-style (Flash MC Feedback)</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #0f172a;
+            --ink: #e2e8f0;
+            --muted: #94a3b8;
+            --card: #0b1325;
+            --line: #1f2a44;
+            --accent1: #22d3ee;
+            --accent2: #34d399;
+            --warn: #ef4444;
+            --ok: #06d6a0;
+            --gold: #facc15;
+        }
 
-  /* === Multiple-choice buttons + flash feedback === */
-  .answerChoice{
-    width:100%; text-align:left; background:#0c1730; border:1px solid var(--line);
-    color:var(--ink); padding:12px; border-radius:12px; cursor:pointer;
-    transition: background-color .25s ease, transform .05s ease, outline-color .25s ease;
-  }
-  .answerChoice:active{ transform: scale(0.98); }
-  .answerChoice.correct{ background: rgba(6,214,160,.18); outline:2px solid var(--ok) }
-  .answerChoice.wrong{ background: rgba(239,68,68,.18); outline:2px solid var(--warn) }
+        * {
+            box-sizing: border-box
+        }
 
-  .bank{ display:flex; gap:8px; flex-wrap:wrap; padding:8px; background:#0c1730; border:1px dashed var(--line); border-radius:12px }
-  .chip{ padding:8px 10px; background:#0f1d36; border:1px solid var(--line); border-radius:999px; cursor:pointer }
-  .chip.used{ opacity:.5; pointer-events:none }
-  .kbd{ background:#111; border:1px solid #333; padding:2px 6px; border-radius:6px; color:#fff }
-  .modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:50 }
-  .panel2{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; width:min(560px, 94%); box-shadow:0 20px 60px rgba(0,0,0,.35) }
-  .rowC{ display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap }
-  .mute{ margin-left:6px;}
-  .reviewRow{ display:flex; align-items:center; gap:10px; justify-content:space-between; padding:10px; border:1px dashed var(--line); border-radius:12px; background:rgba(34,211,238,.05) }
-</style>
+        html, body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif
+        }
+
+        button, input, select, label {
+            pointer-events: auto
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 16px
+        }
+
+        .hero {
+            background: linear-gradient(180deg,#132038 0%, #0f172a 100%);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 16px 16px 0;
+            margin-bottom: 12px;
+        }
+
+        .title {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 900;
+            background: linear-gradient(90deg,var(--accent2),var(--accent1));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin: 12px 0 0
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            border: 1px solid var(--line);
+            color: var(--ink);
+            background: var(--panel);
+            border-radius: 12px 12px 0 0;
+            font-weight: 700
+        }
+
+            .tab.active {
+                background: linear-gradient(180deg,#152240,#0f172a);
+                border-bottom-color: transparent
+            }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-top: none;
+            background: var(--panel);
+            padding: 16px;
+            border-radius: 0 12px 12px 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap
+        }
+
+        input[type="text"], select {
+            background: var(--card);
+            border: 1px solid var(--line);
+            color: var(--ink);
+            border-radius: 10px;
+            padding: 10px 12px;
+            outline: none;
+            width: 100%;
+        }
+
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 10px;
+            background: #1e293b;
+            color: var(--ink);
+            cursor: pointer
+        }
+
+            .btn.primary {
+                background: linear-gradient(90deg,var(--accent2),var(--accent1));
+                color: #0b1020;
+                font-weight: 800
+            }
+
+            .btn.ghost {
+                background: transparent;
+                border: 1px solid var(--line)
+            }
+
+        .pill {
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            border-radius: 999px;
+            font-size: 13px
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+            gap: 10px
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 12px
+        }
+
+            .badge.ok {
+                background: rgba(6,214,160,.12);
+                color: var(--ok)
+            }
+
+            .badge.warn {
+                background: rgba(239,68,68,.12);
+                color: var(--warn)
+            }
+
+            .badge.gold {
+                background: rgba(250,204,21,.12);
+                color: var(--gold)
+            }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 16px;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #1f2937;
+            box-shadow: 0 10px 30px rgba(0,0,0,.35);
+            z-index: 20
+        }
+
+        .flex {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+        .spacer {
+            flex: 1
+        }
+
+        .hidden {
+            display: none !important
+        }
+        /* overlays can't intercept when hidden */
+        .toast.hidden, .modal.hidden {
+            pointer-events: none !important;
+        }
+
+        .center {
+            text-align: center
+        }
+
+        .big {
+            font-size: 18px
+        }
+
+        @media (max-width:600px) {
+            .title {
+                font-size: 20px
+            }
+        }
+
+        /* === Multiple-choice buttons + flash feedback === */
+        .answerChoice {
+            width: 100%;
+            text-align: left;
+            background: #0c1730;
+            border: 1px solid var(--line);
+            color: var(--ink);
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color .25s ease, transform .05s ease, outline-color .25s ease;
+        }
+
+            .answerChoice:active {
+                transform: scale(0.98);
+            }
+
+            .answerChoice.correct {
+                background: rgba(6,214,160,.18);
+                outline: 2px solid var(--ok)
+            }
+
+            .answerChoice.wrong {
+                background: rgba(239,68,68,.18);
+                outline: 2px solid var(--warn)
+            }
+
+        .bank {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px;
+            background: #0c1730;
+            border: 1px dashed var(--line);
+            border-radius: 12px
+        }
+
+        .chip {
+            padding: 8px 10px;
+            background: #0f1d36;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            cursor: pointer
+        }
+
+            .chip.used {
+                opacity: .5;
+                pointer-events: none
+            }
+
+        .kbd {
+            background: #111;
+            border: 1px solid #333;
+            padding: 2px 6px;
+            border-radius: 6px;
+            color: #fff
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50
+        }
+
+        .panel2 {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 16px;
+            width: min(560px, 94%);
+            box-shadow: 0 20px 60px rgba(0,0,0,.35)
+        }
+
+        .rowC {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap
+        }
+
+        .mute {
+            margin-left: 6px;
+        }
+
+        .reviewRow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+            padding: 10px;
+            border: 1px dashed var(--line);
+            border-radius: 12px;
+            background: rgba(34,211,238,.05)
+        }
+    </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="hero">
-    <div class="flex">
-      <h1 class="title">Lingo Dictionary — Duolingo-style</h1>
-      <span class="badge gold" title="Streak">🔥 <span id="streak">0</span></span>
-      <span class="badge ok" title="XP">⭐ <span id="xp">0</span></span>
-      <span class="badge warn" title="Hearts">❤ <span id="hearts">5</span></span>
-      <div class="spacer"></div>
-      <label class="pill">🔊 Sound <input id="muteToggle" class="mute" type="checkbox" /></label>
-      <span class="pill" id="heartControls">
-        ❤ Hearts:
-        <button class="btn ghost" id="btnHPlus1" type="button">+1</button>
-        <button class="btn ghost" id="btnHPlus5" type="button">+5</button>
-        <button class="btn ghost" id="btnHRefill" type="button">Refill</button>
-        <label style="margin-left:6px">Unlimited <input id="unlimitedToggle" type="checkbox" /></label>
-      </span>
-      <button id="helpBtn" class="btn ghost" type="button">Controls</button>
-      <!-- Reset Data button -->
-      <button id="resetDataBtn" class="btn ghost" type="button" title="Wipe saved words & reload from code">Reset Data</button>
-    </div>
-    <div class="tabs">
-      <button class="tab active" data-tab="learn" type="button">Learn</button>
-      <button class="tab" data-tab="practice" type="button">Practice</button>
-      <button class="tab" data-tab="dictionary" type="button">Dictionary</button>
-    </div>
-  </div>
-
-  <!-- Learn -->
-  <section id="learn" class="panel">
-    <div class="grid" style="grid-template-columns:1.6fr .8fr .8fr">
-      <div class="row">
-        <input id="lookupInput" type="text" placeholder="Type a word (key or meaning) and press Enter…" />
-      </div>
-      <button id="lookupBtn" class="btn primary" type="button">Look up</button>
-      <button id="viewBtn" class="btn" type="button">View all</button>
-    </div>
-    <div id="lookupResult" class="card" style="margin-top:12px; display:none"></div>
-  </section>
-
-  <!-- Practice -->
-  <section id="practice" class="panel hidden">
-    <div class="flex">
-      <div class="pill">Category:
-        <select id="catPracticeSel"></select>
-      </div>
-      <div class="pill">Mode:
-        <select id="modeSel">
-          <option value="mc">Multiple Choice</option>
-          <option value="order">Word Bank (order)</option>
-        </select>
-      </div>
-      <div class="pill">Direction:
-        <select id="directionSel">
-          <option value="en2key">English → Word</option>
-          <option value="key2en">Word → English</option>
-        </select>
-      </div>
-      <div class="spacer"></div>
-      <button id="startPractice" class="btn primary" type="button">Start</button>
-      <button id="skipBtn" class="btn" type="button">Skip</button>
-    </div>
-
-    <div id="progressNote" class="muted" style="margin-top:8px"></div>
-
-    <div id="challengeArea" class="card" style="margin-top:12px; display:none">
-      <div id="prompt" class="big" style="margin-bottom:10px;"></div>
-      <div id="mcWrap" class="grid hidden" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
-      <div id="orderWrap" class="hidden">
-        <div class="bank" id="bank"></div>
-        <div style="margin-top:8px" class="bank" id="answerBank"></div>
-        <div class="flex" style="margin-top:8px">
-          <button id="clearOrder" class="btn" type="button">Clear</button>
-          <button id="submitOrder" class="btn primary" type="button">Submit</button>
+    <div class="wrap">
+        <div class="hero">
+            <div class="flex">
+                <h1 class="title">Lingo Dictionary — Duolingo-style</h1>
+                <span class="badge gold" title="Streak">🔥 <span id="streak">0</span></span>
+                <span class="badge ok" title="XP">⭐ <span id="xp">0</span></span>
+                <span class="badge warn" title="Hearts">❤ <span id="hearts">5</span></span>
+                <div class="spacer"></div>
+                <label class="pill">🔊 Sound <input id="muteToggle" class="mute" type="checkbox" /></label>
+                <span class="pill" id="heartControls">
+                    ❤ Hearts:
+                    <button class="btn ghost" id="btnHPlus1" type="button">+1</button>
+                    <button class="btn ghost" id="btnHPlus5" type="button">+5</button>
+                    <button class="btn ghost" id="btnHRefill" type="button">Refill</button>
+                    <label style="margin-left:6px">Unlimited <input id="unlimitedToggle" type="checkbox" /></label>
+                </span>
+                <button id="helpBtn" class="btn ghost" type="button">Controls</button>
+                <!-- Reset Data button -->
+                <button id="resetDataBtn" class="btn ghost" type="button" title="Wipe saved words & reload from code">Reset Data</button>
+            </div>
+            <div class="tabs">
+                <button class="tab active" data-tab="learn" type="button">Learn</button>
+                <button class="tab" data-tab="practice" type="button">Practice</button>
+                <button class="tab" data-tab="dictionary" type="button">Dictionary</button>
+            </div>
         </div>
-      </div>
+
+        <!-- Learn -->
+        <section id="learn" class="panel">
+            <div class="grid" style="grid-template-columns:1.6fr .8fr .8fr">
+                <div class="row">
+                    <input id="lookupInput" type="text" placeholder="Type a word (key or meaning) and press Enter…" />
+                </div>
+                <button id="lookupBtn" class="btn primary" type="button">Look up</button>
+                <button id="viewBtn" class="btn" type="button">View all</button>
+            </div>
+            <div id="lookupResult" class="card" style="margin-top:12px; display:none"></div>
+        </section>
+
+        <!-- Practice -->
+        <section id="practice" class="panel hidden">
+            <div class="flex">
+                <div class="pill">
+                    Category:
+                    <select id="catPracticeSel"></select>
+                </div>
+                <div class="pill">
+                    Mode:
+                    <select id="modeSel">
+                        <option value="mc">Multiple Choice</option>
+                        <option value="order">Word Bank (order)</option>
+                    </select>
+                </div>
+                <div class="pill">
+                    Direction:
+                    <select id="directionSel">
+                        <option value="en2key">English → Word</option>
+                        <option value="key2en">Word → English</option>
+                    </select>
+                </div>
+                <div class="spacer"></div>
+                <button id="startPractice" class="btn primary" type="button">Start</button>
+                <button id="skipBtn" class="btn" type="button">Skip</button>
+            </div>
+
+            <div id="progressNote" class="muted" style="margin-top:8px"></div>
+
+            <div id="challengeArea" class="card" style="margin-top:12px; display:none">
+                <div id="prompt" class="big" style="margin-bottom:10px;"></div>
+                <div id="mcWrap" class="grid hidden" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
+                <div id="orderWrap" class="hidden">
+                    <div class="bank" id="bank"></div>
+                    <div style="margin-top:8px" class="bank" id="answerBank"></div>
+                    <div class="flex" style="margin-top:8px">
+                        <button id="clearOrder" class="btn" type="button">Clear</button>
+                        <button id="submitOrder" class="btn primary" type="button">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dictionary -->
+        <section id="dictionary" class="panel hidden">
+            <div class="flex">
+                <div class="pill">
+                    Filter:
+                    <select id="catFilter"></select>
+                </div>
+                <div class="spacer"></div>
+                <button id="exportBtn" class="btn" type="button">Export JSON</button>
+                <label class="btn ghost" for="importFile">Import JSON</label>
+                <input id="importFile" type="file" accept=".json" style="display:none" />
+                <button id="addBtn" class="btn primary" type="button">Add Word</button>
+            </div>
+
+            <!-- Earn hearts by review -->
+            <div id="reviewCard" class="card" style="margin-top:12px; display:none">
+                <div class="big" style="font-weight:800;margin-bottom:6px">Review to earn hearts</div>
+                <div class="muted" style="margin-bottom:8px">Practice missed words. Each correct review restores <b>+1 ❤</b>.</div>
+                <div id="reviewList" class="grid" style="grid-template-columns:1fr"></div>
+            </div>
+
+            <div id="dictList" class="cards" style="margin-top:12px"></div>
+        </section>
     </div>
-  </section>
 
-  <!-- Dictionary -->
-  <section id="dictionary" class="panel hidden">
-    <div class="flex">
-      <div class="pill">Filter:
-        <select id="catFilter"></select>
-      </div>
-      <div class="spacer"></div>
-      <button id="exportBtn" class="btn" type="button">Export JSON</button>
-      <label class="btn ghost" for="importFile">Import JSON</label>
-      <input id="importFile" type="file" accept=".json" style="display:none" />
-      <button id="addBtn" class="btn primary" type="button">Add Word</button>
+    <!-- Toast -->
+    <div id="toast" class="toast hidden" aria-live="polite"></div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="toast hidden" style="top:16px; bottom:auto; max-width:720px; width:calc(100% - 32px)">
+        <div class="big" style="margin-bottom:6px; font-weight:900">Controls</div>
+        <div class="muted">
+            • Practice: choose a category (or All) • Unlimited mode keeps hearts from dropping • Dictionary lets you add/edit words and review misses for hearts
+        </div>
     </div>
 
-    <!-- Earn hearts by review -->
-    <div id="reviewCard" class="card" style="margin-top:12px; display:none">
-      <div class="big" style="font-weight:800;margin-bottom:6px">Review to earn hearts</div>
-      <div class="muted" style="margin-bottom:8px">Practice missed words. Each correct review restores <b>+1 ❤</b>.</div>
-      <div id="reviewList" class="grid" style="grid-template-columns:1fr"></div>
+    <!-- Out of Hearts Modal -->
+    <div id="outModal" class="modal hidden" aria-hidden="true">
+        <div class="panel2 center">
+            <div class="big" style="font-weight:900">Out of hearts</div>
+            <div class="muted" style="margin:8px 0 12px">Turn on <b>Unlimited</b> or review missed words in the Dictionary to earn hearts and continue.</div>
+            <div class="rowC">
+                <button id="goReview" class="btn primary" type="button">Go to Dictionary</button>
+                <button id="dismissOut" class="btn" type="button">Close</button>
+            </div>
+        </div>
     </div>
 
-    <div id="dictList" class="cards" style="margin-top:12px"></div>
-  </section>
-</div>
-
-<!-- Toast -->
-<div id="toast" class="toast hidden" aria-live="polite"></div>
-
-<!-- Help Modal -->
-<div id="helpModal" class="toast hidden" style="top:16px; bottom:auto; max-width:720px; width:calc(100% - 32px)">
-  <div class="big" style="margin-bottom:6px; font-weight:900">Controls</div>
-  <div class="muted">
-    • Practice: choose a category (or All) • Unlimited mode keeps hearts from dropping • Dictionary lets you add/edit words and review misses for hearts
-  </div>
-</div>
-
-<!-- Out of Hearts Modal -->
-<div id="outModal" class="modal hidden" aria-hidden="true">
-  <div class="panel2 center">
-    <div class="big" style="font-weight:900">Out of hearts</div>
-    <div class="muted" style="margin:8px 0 12px">Turn on <b>Unlimited</b> or review missed words in the Dictionary to earn hearts and continue.</div>
-    <div class="rowC">
-      <button id="goReview" class="btn primary" type="button">Go to Dictionary</button>
-      <button id="dismissOut" class="btn" type="button">Close</button>
+    <!-- Congrats Modal -->
+    <div id="doneModal" class="modal hidden" aria-hidden="true">
+        <div class="panel2 center">
+            <div class="big" style="font-weight:900">🎉 Congrats!</div>
+            <div class="muted" id="doneText" style="margin:8px 0 12px">You completed this category.</div>
+            <div class="rowC">
+                <button id="chooseAnother" class="btn" type="button">Choose Another Category</button>
+                <button id="repeatSession" class="btn ghost" type="button">Repeat This Category</button>
+                <button id="closeDone" class="btn primary" type="button">Close</button>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- Congrats Modal -->
-<div id="doneModal" class="modal hidden" aria-hidden="true">
-  <div class="panel2 center">
-    <div class="big" style="font-weight:900">🎉 Congrats!</div>
-    <div class="muted" id="doneText" style="margin:8px 0 12px">You completed this category.</div>
-    <div class="rowC">
-      <button id="chooseAnother" class="btn" type="button">Choose Another Category</button>
-      <button id="repeatSession" class="btn ghost" type="button">Repeat This Category</button>
-      <button id="closeDone" class="btn primary" type="button">Close</button>
+    <!-- Review Modal -->
+    <div id="reviewModal" class="modal hidden" aria-hidden="true">
+        <div class="panel2">
+            <div class="big" id="reviewPrompt" style="margin-bottom:10px;font-weight:800">Review</div>
+            <div id="reviewChoices" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
+            <div class="rowC" style="margin-top:10px">
+                <button id="closeReview" class="btn" type="button">Close</button>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- Review Modal -->
-<div id="reviewModal" class="modal hidden" aria-hidden="true">
-  <div class="panel2">
-    <div class="big" id="reviewPrompt" style="margin-bottom:10px;font-weight:800">Review</div>
-    <div id="reviewChoices" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
-    <div class="rowC" style="margin-top:10px">
-      <button id="closeReview" class="btn" type="button">Close</button>
-    </div>
-  </div>
-</div>
-
-<script>
+    <script>
 'use strict';
 /* Wait for DOM */
 window.addEventListener('DOMContentLoaded', () => {
@@ -260,7 +528,7 @@ const SEED = {
   greetings: { "Hello": ["Bodia e"],"Hi": ["Bodia e"],"Good morning": ["Aisan"],"Good afternoon": ["Khara"],"Good evening": ["Khara"],"Good night": ["Okin ewie"],"Goodbye": ["Okinbue"],"Please": ["Huean"],"Thank you": ["Obuku"],"You are welcome": ["~"],"Excuse me": ["~"],"Im sorry": ["Ote"],"Yes": ["Eh He"],"No": ["Eh Ye"],"Maybe": ["Egheso"],"I dont know": ["Men bha len"],"Do you speak [language]?": ["We ze [uro]?"],"I dont understand": ["O bha mu men elo kuere"],"What is your name?": ["Bati elin e?"],"My name is...": ["Atie men"] },
   descriptions: { "Big": ["Udede"],"Small": ["Khere"],"Hot": ["Ebekhua"],"Cold": ["Ebefuofua"],"Fast": ["Tuq-Mhin"],"Slow": ["Kike"],"Good": ["O  meen"],"Bad": ["Kholo mhin"],"New": ["Osogbon"],"Old": ["Fafa"],"Happy": ["Eghonghon"],"Sad": ["Onon ighonghon"],"Easy": ["Lekhe"],"Hard": ["Kaka-mhin"],"Beautiful": ["Meose"],"Funny": ["Ojie"],"Tall": ["Taan"],"Small amount ": ["Obhi ?khere"],"bigger": ["mama udede"],"fat": ["Konkon"],"tiny": ["ikwe'kwi"],"serious": ["Kaka mhin"],"tiresome": ["O khanlan"]},
   animals: { "Alligator": ["agbaka"],"Ant": ["Abibi"],"Antelope": ["Uzo"],"Bat": ["Akogan"],"Bird": ["afianmhen"],"Butterfly": ["Akpakpa"],"Cat": ["onogbo"],"Chameleon": ["Alokhin"],"Chicken": ["?kh?"],"Chimpanzee": ["Osa"],"Cobra": ["Ebi"],"Crab": ["Ozi"],"Cricket": ["osen"],"Crocodile": ["agbaka"],"Deer": ["uzo"],"Dog": ["áwà"],"Earthworm": ["Ahulu"],"Elephant": ["Eni"],"Fly": ["i?khi??n"],"Frog": ["akil?"],"Goat": ["?bhe"],"Grasshopper": ["Ugbaf?n"],"Hawk": ["Ahi?nl?nkp?n"],"Horse": ["Akasi"],"Leopard": ["Atanakpa"],"Lion": ["Oduma"],"Monkey": ["emenlen"],"Pig": ["Esi"],"Porcupine": ["Qkhaen"],"Rabbit": ["Èluo"],"Rat": ["Of?n"],"Rooster": ["??kpà"],"Scorpion": ["Akpin(N)"],"Shark": ["Agbaka(N)"],"Sheep": ["Ohuan"],"Snake": ["?y?n"],"Sponge": ["Ihi?n"],"Squirrel": ["?tan"],"Tiger": ["Atanakpa"],"Tick": ["Arue"],"Tortoise": ["ewi"],"Turtle": ["ewi"],"Vulture": ["Udene"],"Woodpecker": ["?kpokporan"] },
-  food: { "Water": ["Amen"],"Kitchen": ["Odoerie"],"Bread": ["Ekan"]},
+  food: { "Pan": ["Bread"], "Agua": ["Water"], "Manzana": ["Apple"] },
   verbs_basic: { "To live": ["Dia"],"To die": ["Dokin"],"To sleep": ["Wele"],"To wake up": ["Re obowe"],"To run": ["Riune"],"To walk": ["Tete khian"],"To sit": ["Dotua"],"To stand": ["Gbano"],"To open": ["Tuje"],"To close": ["Khue"],"To read": ["Tie"],"To write": ["Ogbemi"],"To listen": ["Re eho"],"To talk": ["Talow"],"To call (phone)": ["Atie"],"To think": ["Eria"],"To remember": ["Yere"],"To forget": ["Bha yere"],"To wait": ["Modia"],"To help": ["Urekpa"],"To Accept": ["Mien"],"To Admit": ["Mienkue"],"To Agree": ["Aka"],"To Argue": ["Khon"],"To Arrive": ["Re se"],"To Ask": ["Ni"],"To assist": ["Nemhen"],"To be": ["aye"],"To begin": ["Da"],"To bought": ["ude"],"To build": ["bo"],"To build": ["la bon"],"To buy": ["de"],"To Call": ["Atie"],"To Arrive": ["Vae"],"To Come": ["Va de"],"To Care": ["Gbe"],"To Carried": ["Mu"],"To Catch": ["muen"],"To Choose": ["Ze"],"To Wash": ["Gbe"],"To Clean": ["Gbe"],"To Clean Clothes": ["Bolia"],"To complain": ["gui"],"To cook": ["nien"],"To cut": ["hian"],"To die": ["Yuu"],"To do": ["lu"],"To Eat": ["Le"],"To feel": ["fure"],"To Fight": ["Okhonlen"],"To find": ["Mienrie"],"To finish": ["fo"],"To follow": ["Deso"],"To forget": ["Ye"],"To Give": ["Re"],"To get": ["Ne"],"To go": ["Khian"],"To Went": ["Khian"],"To grew": ["Wanre"],"To had": ["mhon"],"To kill": ["gbe"],"To know": ["leen"],"To lead": ["oze"],"To learn": ["Lue"],"To leave": ["Khian"],"To left": ["sibi"],"To listen": ["hon"],"To look": ["ghe"],"To love": ["ihoemoegbe"],"To loves": ["hoemen"],"To make": ["waa"],"To open": ["Tuje"],"To protect": ["Odije"],"To reach": ["Sele"],"To receive": ["mien"],"To remain": ["Kere"],"To research": ["Tie"],"To respect": ["Ekpen"],"To return": ["Vae"],"To say": ["ta"],"To say": ["talow"],"To see": ["da ghe"],"To sell": ["khien"],"To send": ["Jie"],"To send": ["Ne"],"To serve": ["Ga"],"To sit": ["d'otua"],"To sleep": ["Wele"],"To speak": ["Talow"],"To spend": ["ria"],"To stand": ["gbano"],"To stay": ["dia"],"To stop": ["mundian"],"To stop": ["modia"],"To Take": ["Mien"],"To tell": ["Tama"],"To thank": ["obulu"],"To think": ["ria"],"To try": ["obo men dale"],"To understand": ["O mu men elo khuere"],"To use": ["Noo"],"To visit": ["Fe"],"To wait": ["Modia"],"To Walk": ["Tete Khian"],"To want": ["gwano"],"To Went": ["Yo"],"To work": ["iwenna"],"To Find": ["Mi"],"To able": ["ki da"] },
   verbs_travel: { "Tired": ["Loe"],"Hungry": ["Ohame"],"Thirsty": ["Ohame"],"Sick": ["Ekhumun"],"Hot (feeling)": ["Ebekhua"],"Cold (feeling)": ["Ebefuofua"],"Scared": ["~"],"Angry": ["Osobhalo"],"Bored": ["~"],"Excited": ["Eghonghon"] },
   nouns: { "Man": ["Okpea"],"Woman": ["Okhuo"],"Child": ["Omon"],"Friend": ["Onuele"],"Family": ["Ibokhan"],"House": ["Uwa"],"Car": ["Imotto"],"Work": ["Iwena"],"School": ["Uwebe"],"Water": ["Amen"],"Food": ["Ebale"],"Money": ["Igho"],"Time": ["Eghe"],"Day": ["Ede"],"Night": ["Ason"] },
@@ -272,12 +540,12 @@ const SEED = {
   clothing: { "Camisa": ["Shirt"], "Pantalones": ["Pants"], "Zapatos": ["Shoes"] },
   weather: { "Lluvia": ["Rain"], "Nieve": ["Snow"], "Viento": ["Wind"] },
   body: { "Head": ["Uhonmon"],"Hair": ["Eto"],"Face": ["Elolo"],"Eye": ["Elo"],"Hair": ["Eto"],"Nose": ["Ihue"],"Mouth": ["Unun"],"Hand": ["Obo"],"Foot": ["Oe"],"Leg": ["Oe"],"Armpit": ["Elihele"],"butt": ["uwedin"],"cheek": ["iro"],"Elbow": ["Egogo obor"],"eyelashes": ["ihuenlo"],"Finger": ["Ikpianb?"],"Finger Nail": ["ihieonbo"],"Finger Nails": ["Ehienlen"],"Knee": ["ugogo"],"Neck": ["Uru"],"Shoulder": ["ijianb?"],"Stomach": ["?k?"],"Tooth": ["akon"],"Toe": ["ikpianw?"],"Waist": ["?kun"],"Wrist": ["Akhu"]},
-  school: { "Home": ["Uwa"],"School": ["Uwa ebe"],"Work": ["Iwenna"],"Office": ["Ioffice"],"Store": ["Eki"],"Restaurant": ["Irestaurant"],"Market": ["Eki"],"Hospital": ["Uwa ukhumun"],"Bank": ["Aza"],"Airport": ["~"]}
+  school: { "Who bought the car": ["Obho ude onin imonto"], "Who bought the car": ["Obho de onin imonto"], "Discuss": ["Niyen"], "We will discuss the book tomorrow": ["Man  ha niyen onin ebe elena"], "He is strong": ["Daniel ole wowo"], "He will by water tomorrow": ["Ole ha de amen akho"], "He will by water tomorrow": ["Ole ha de amen ewie"], "Drive": ["Heen"], "I will drive to church": ["Men ha heen imonto akhian otue"], "Everyday": ["Edede"], "I eat food everyday": ["Men le ebae edede"], "Please give me the money": ["Wowo rie men onin igho"], "Preach": ["Wa osun"], "You cannot preach here": ["Uwe ii sabo wa osun enan"], "Run": ["Rie une"], "Please run home": ["Wowo rie une akhian uwa"], "Gathering": ["Sikoko"], "He is gathering the money": ["Ole sikoko onin igho"], "Dance": ["Gwe gbe ikhen"], "I cant dance": ["Men bha gwe gbe ikhen"], "Cold": ["Fofo"], "Today is cold": ["Elena ole fofo"], "Hat": ["Ukperu"], "I am wearing a hat": ["Men yo ukperu"], "He bought clothes": ["Ole de ikpon"], "He bought clothes": ["Ole ude ikpon"], "I will right a book": ["Men ha gben ebe"], "This place is very tight": ["Enan wowo keke"], "Tight": ["Keke"], "Very": ["Woo"], "Here": ["Enan"], "This place": ["Enan"], "Help": ["Urekpa"], "Help me carry this money": ["Rekpa men ka igho onin"], "Help me carry this money": ["Urekpa men ka igho onin"], "The": ["Onin"], "I dont accept": ["Men bha ka"], "I will not accept": ["Men ii ka"], "Dont accept": ["Aii ki"], "Do not accept": ["Aii ki"], "Accept": ["Ka"], "Close your mouth": ["Koko unun ose"], "Close your mouth": ["Koko unun no se e"], "Your mouth": ["Unun ose"], "Your mouth": ["Unun no se e"], "Mouth": ["Unun"], "Close it": ["Koko Ole"], "Your back": ["ikike"], "Before": ["ikike"], "Behind": ["ikike"], "To be tight": ["Keke"], "Count": ["Ka"], "Agree": ["Ka"], "Shut": ["Koko"], "Close": ["Koko"], "Do not laugh at her": ["A ii je ole"], "Do not laugh at him": ["A ii je ole"], "Dont": ["A ii"], "Do not": ["A ii"], "Mock": ["Je"], "Laugh": ["Je"], "Do not send me": ["A ii jie men"], "Errand": ["Uhunmun"], "Message": ["Uhunmun"], "Who sent you the message": ["Obho je uwe uhunmun"], "Send": ["Je"], "Whom": ["Obho"], "Who": ["Obho"], "I am going to esan class": ["Men khian uwaebe esan"], "Which place": ["Je bho"], "Where": ["Je"], "Where are you going": ["Je uwe khian"], "My money": ["igho men"], "My bag": ["Ekpa men"], "I am washing my bag": ["Men kpe ekpa men"], "I am": ["Men"], "Bag": ["Ekpa"], "Dishes": ["Ikpamaku"], "I am washing dishes": ["Men kpe ikpamaku"], "I am washing dishes": ["Men gbe ikpamaku"], "He is packing clothes": ["Ole hee ikpon"], "I am packing things": ["Men hee emin"], "What are you doing": ["Be uwe lu"], "We are carrying chairs": ["Man hee aga"], "We are carrying things": ["Man hee emin"], "Carry": ["Hee"], "Pack": ["Hee"], "Reject": ["Hee"], "Please do not reject the money": ["Wowo a ii hee onin igho"], "Clothing": ["Ukpon"], "Clothes": ["ikpon"], "I wash clothes": ["Men gbe ikpon"], "I wash clothes": ["Men hoo ikpon"], "Dishes": ["kpe"], "Washing": ["Gbe"], "Washing": ["hoo"], "Go": ["Yo"], "Today": ["Elena"], "Work": ["iwenna"], "Will": ["Ha"], "He will go to work today": ["Ole ha ya iwenna elena"], "Ring a bell": ["Fi egogo"], "Bell": ["Egogo"], "Teacher": ["Omaanebe"], "Our teacher is ringing the bell": ["Omaanebe man, fi onin egogo"], "Dont": ["A ii"], "Here": ["Enan"], "This place": ["Enan"], "Argue": ["Gbugen"], "Don not argue in this place": ["A ii gbugen bhi enan"], "I will worship you": ["Men ha ga uwe"], "I will serve you": ["Men ha ga uwe"], "I worship God": ["Men ga Ose"], "Worship": ["Ga"], "Serve": ["Ga"], "Ready": ["Ga"], "Cooked": ["Ga"], "The food is cooked": ["Onin Ebae ga"], "Buy": ["Ude"], "Buy": ["De"], "Chair": ["Aga"], "Today": ["Elena"], "My mother bought a chair today": ["Ine men de aga elena"], "My mother bought a chair today": ["Ine men ude aga elena"], "He is agile": ["Ole fifi"], "It": ["Ole"], "Pluck": ["Fan"], "Dont": ["A ii"], "Do not": ["A ii"], "Do not pluck it": ["A ii fan ole"], "The food is cold": ["Onin ebae fofo"], "Chilled": ["Fofo"], "Cold": ["Fofo"], "The": ["Onin"], "The water is cold": ["Onin amen fofo"], "He saw a bird": ["Ole da ghee afianmen"], "He sees a bird": ["Ole da ghee afianmen"], "Bird": ["Afianmen"], "See": ["Da ghee"], "I saw a bird": ["Men da ghee afianmen"], "Water": ["Amen"], "I am drinking water": ["Men won amen"], "Drink (Water)": ["Won"], "Drink (Alcohol)": ["Da"], "Anyon udin": ["Palm Wine"], "Uwe ba da anyon udin": ["Do you drink alcohol"], "Da Ede uwe re vade": ["Are you coming to the river"], "Vade": ["Coming"], "Khian": ["Going"], "Ede": ["River"], "Ole khian ede": ["He is going to the river"], "Tie": ["Reading"], "Tie": ["Read"], "Men khian la meen eto": ["I am going to make hair"], "Eto": ["Hair"], "Gben": ["Cut"], "Men khian la gben eto": ["I am going to cut hair"], "Ebe": ["book"], "Men tie ebe": ["I am reading a book"], "ii": ["will not"], "ii": ["wont"], "E ii yo uwaebe elena": ["They won't go to school today"], "E ii yo uwaebe elena": ["They are not going to school today"] }
 };
 
 
 /* ---------- Data Versioning (BUMP THIS when you change seeds/categories) ---------- */
-const DATA_VERSION = '2025-09-16-a';
+const DATA_VERSION = '2025-08-25-a';
 const VERSION_KEY = 'lingo_words_version';
 
 /* ---------- Storage + migration from very old keys ----------- */
@@ -673,6 +941,6 @@ function init(){
 init();
 
 }); // DOMContentLoaded
-</script>
+    </script>
 </body>
 </html>
