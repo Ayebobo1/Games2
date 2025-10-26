@@ -226,6 +226,7 @@
                 font-size: 20px
             }
         }
+
         /* MC buttons + flash */
         .answerChoice {
             width: 100%;
@@ -253,6 +254,7 @@
                 outline: 2px solid var(--warn)
             }
 
+        /* Word bank containers */
         .bank {
             display: flex;
             gap: 8px;
@@ -260,15 +262,20 @@
             padding: 8px;
             background: #0c1730;
             border: 1px dashed var(--line);
-            border-radius: 12px
+            border-radius: 12px;
+            color: var(--ink); /* ensure text inside is light */
         }
 
+        /* Word bank chip buttons */
         .chip {
             padding: 8px 10px;
             background: #0f1d36;
             border: 1px solid var(--line);
             border-radius: 999px;
-            cursor: pointer
+            cursor: pointer;
+            color: var(--ink); /* force white-ish text */
+            -webkit-appearance: none; /* prevent UA default button colors */
+            appearance: none;
         }
 
             .chip.used {
@@ -326,6 +333,7 @@
             background: rgba(34,211,238,.05)
         }
     </style>
+
 </head>
 <body>
     <div class="wrap">
@@ -530,7 +538,7 @@
             /* ---------- Categories + SEED hook ---------- */
             const CATS = [
                 "numbers", "others", "greetings", "descriptions", "animals", "food", "verbs_basic", "verbs_travel",
-                "nouna", "questions", "time", "commonverbs", "family", "directions", "clothing", "weather", "body", "school1","school2"
+                "nouns", "questions", "time", "commonverbs", "family", "directions", "clothing", "weather", "body", "school1", "school2"
             ];
 
             /* REPLACE the empty object below with your full SEED from your data file. */
@@ -540,23 +548,25 @@
                 greetings: { "Hello": ["Bodia e"], "Hi": ["Bodia e"], "Good morning": ["Aisan"], "Good afternoon": ["Khara"], "Good evening": ["Khara"], "Good night": ["Okin ewie"], "Goodbye": ["Okinbue"], "Please": ["Huean"], "Thank you": ["Obuku"], "You are welcome": ["~"], "Excuse me": ["~"], "Im sorry": ["Ote"], "Yes": ["Eh He"], "No": ["Eh Ye"], "Maybe": ["Egheso"], "I dont know": ["Men bha len"], "Do you speak [language]?": ["We ze [uro]?"], "I dont understand": ["O bha mu men elo kuere"], "What is your name?": ["Bati elin e?"], "My name is...": ["Atie men"] },
                 descriptions: { "Big": ["Udede"], "Small": ["Khere"], "Hot": ["Ebekhua"], "Cold": ["Ebefuofua"], "Fast": ["Tuq-Mhin"], "Slow": ["Kike"], "Good": ["O  meen"], "Bad": ["Kholo mhin"], "New": ["Osogbon"], "Old": ["Fafa"], "Happy": ["Eghonghon"], "Sad": ["Onon ighonghon"], "Easy": ["Lekhe"], "Hard": ["Kaka-mhin"], "Beautiful": ["Meose"], "Funny": ["Ojie"], "Tall": ["Taan"], "Small amount ": ["Obhi ?khere"], "bigger": ["mama udede"], "fat": ["Konkon"], "tiny": ["ikwe'kwi"], "serious": ["Kaka mhin"], "tiresome": ["O khanlan"] },
                 animals: { "Alligator": ["agbaka"], "Ant": ["Abibi"], "Antelope": ["Uzo"], "Bat": ["Akogan"], "Bird": ["afianmhen"], "Butterfly": ["Akpakpa"], "Cat": ["onogbo"], "Chameleon": ["Alokhin"], "Chicken": ["?kh?"], "Chimpanzee": ["Osa"], "Cobra": ["Ebi"], "Crab": ["Ozi"], "Cricket": ["osen"], "Crocodile": ["agbaka"], "Deer": ["uzo"], "Dog": ["áwà"], "Earthworm": ["Ahulu"], "Elephant": ["Eni"], "Fly": ["i?khi??n"], "Frog": ["akil?"], "Goat": ["?bhe"], "Grasshopper": ["Ugbaf?n"], "Hawk": ["Ahi?nl?nkp?n"], "Horse": ["Akasi"], "Leopard": ["Atanakpa"], "Lion": ["Oduma"], "Monkey": ["emenlen"], "Pig": ["Esi"], "Porcupine": ["Qkhaen"], "Rabbit": ["Èluo"], "Rat": ["Of?n"], "Rooster": ["??kpà"], "Scorpion": ["Akpin(N)"], "Shark": ["Agbaka(N)"], "Sheep": ["Ohuan"], "Snake": ["?y?n"], "Sponge": ["Ihi?n"], "Squirrel": ["?tan"], "Tiger": ["Atanakpa"], "Tick": ["Arue"], "Tortoise": ["ewi"], "Turtle": ["ewi"], "Vulture": ["Udene"], "Woodpecker": ["?kpokporan"] },
-                food: { "Pan": ["Bread"], "Agua": ["Water"], "Manzana": ["Apple"] },
+                food: {  },
                 verbs_basic: { "To live": ["Dia"], "To die": ["Dokin"], "To sleep": ["Wele"], "To wake up": ["Re obowe"], "To run": ["Riune"], "To walk": ["Tete khian"], "To sit": ["Dotua"], "To stand": ["Gbano"], "To open": ["Tuje"], "To close": ["Khue"], "To read": ["Tie"], "To write": ["Ogbemi"], "To listen": ["Re eho"], "To talk": ["Talow"], "To call (phone)": ["Atie"], "To think": ["Eria"], "To remember": ["Yere"], "To forget": ["Bha yere"], "To wait": ["Modia"], "To help": ["Urekpa"], "To Accept": ["Mien"], "To Admit": ["Mienkue"], "To Agree": ["Aka"], "To Argue": ["Khon"], "To Arrive": ["Re se"], "To Ask": ["Ni"], "To assist": ["Nemhen"], "To be": ["aye"], "To begin": ["Da"], "To bought": ["ude"], "To build": ["bo"], "To build": ["la bon"], "To buy": ["de"], "To Call": ["Atie"], "To Arrive": ["Vae"], "To Come": ["Va de"], "To Care": ["Gbe"], "To Carried": ["Mu"], "To Catch": ["muen"], "To Choose": ["Ze"], "To Wash": ["Gbe"], "To Clean": ["Gbe"], "To Clean Clothes": ["Bolia"], "To complain": ["gui"], "To cook": ["nien"], "To cut": ["hian"], "To die": ["Yuu"], "To do": ["lu"], "To Eat": ["Le"], "To feel": ["fure"], "To Fight": ["Okhonlen"], "To find": ["Mienrie"], "To finish": ["fo"], "To follow": ["Deso"], "To forget": ["Ye"], "To Give": ["Re"], "To get": ["Ne"], "To go": ["Khian"], "To Went": ["Khian"], "To grew": ["Wanre"], "To had": ["mhon"], "To kill": ["gbe"], "To know": ["leen"], "To lead": ["oze"], "To learn": ["Lue"], "To leave": ["Khian"], "To left": ["sibi"], "To listen": ["hon"], "To look": ["ghe"], "To love": ["ihoemoegbe"], "To loves": ["hoemen"], "To make": ["waa"], "To open": ["Tuje"], "To protect": ["Odije"], "To reach": ["Sele"], "To receive": ["mien"], "To remain": ["Kere"], "To research": ["Tie"], "To respect": ["Ekpen"], "To return": ["Vae"], "To say": ["ta"], "To say": ["talow"], "To see": ["da ghe"], "To sell": ["khien"], "To send": ["Jie"], "To send": ["Ne"], "To serve": ["Ga"], "To sit": ["d'otua"], "To sleep": ["Wele"], "To speak": ["Talow"], "To spend": ["ria"], "To stand": ["gbano"], "To stay": ["dia"], "To stop": ["mundian"], "To stop": ["modia"], "To Take": ["Mien"], "To tell": ["Tama"], "To thank": ["obulu"], "To think": ["ria"], "To try": ["obo men dale"], "To understand": ["O mu men elo khuere"], "To use": ["Noo"], "To visit": ["Fe"], "To wait": ["Modia"], "To Walk": ["Tete Khian"], "To want": ["gwano"], "To Went": ["Yo"], "To work": ["iwenna"], "To Find": ["Mi"], "To able": ["ki da"] },
                 verbs_travel: { "Tired": ["Loe"], "Hungry": ["Ohame"], "Thirsty": ["Ohame"], "Sick": ["Ekhumun"], "Hot (feeling)": ["Ebekhua"], "Cold (feeling)": ["Ebefuofua"], "Scared": ["~"], "Angry": ["Osobhalo"], "Bored": ["~"], "Excited": ["Eghonghon"] },
                 nouns: { "Man": ["Okpea"], "Woman": ["Okhuo"], "Child": ["Omon"], "Friend": ["Onuele"], "Family": ["Ibokhan"], "House": ["Uwa"], "Car": ["Imotto"], "Work": ["Iwena"], "School": ["Uwebe"], "Water": ["Amen"], "Food": ["Ebale"], "Money": ["Igho"], "Time": ["Eghe"], "Day": ["Ede"], "Night": ["Ason"] },
                 questions: { "Who?": ["Khona?"], "What?": ["Ebela?"], "Where?": ["Je?"], "When?": ["Eghe la?"], "Why?": ["Bezele?"], "How?": ["Oni?"], "How much?": ["Eka?"], "How many?": ["Eka la?"], "Which?": ["Onia?"], "What does this mean?": ["Buwe roni ta?"] },
                 time: { "Morning": ["Ewie"], "Afternoon": ["Odanmen"], "Evening": ["Emuan"], "Night": ["Ason"], "Today": ["Elena"], "Tomorrow": ["Akho"], "Yesterday": ["Inode"], "Now": ["Nia"], "Later": ["Muegbe"], "Early": ["~"], "Late": ["~"], "Always": ["Egherebhe"], "Never": ["~"], "Sometimes": ["Egheso"], "Often": ["~"], "Usually": ["~"], "Breakfast": ["~"], "Lunch": ["~"], "Dinner": ["~"], "Snack": ["~"] },
                 commomverbs: { "To be": ["Khin"], "To have": ["Mhon"], "To go": ["Akhian"], "To come": ["Vae"], "To eat": ["lebae"], "To drink": ["Moi"], "To see": ["Da ghe"], "To hear": ["Hon"], "To say": ["Ota"], "To do": ["Lu"], "To make": ["Waa"], "To want": ["Gwano"], "To know": ["Len"], "To like": ["Oye"], "To need": ["Khonu"] },
-                family: { "Madre": ["Mother"], "Padre": ["Father"], "Hermano": ["Brother"] },
+                family: {  },
                 directions: { "In": ["Bhi/Ri bi"], "On": ["Bhi/Ri bi"], "At": ["Bhi/Ri bi"], "Under": ["Otole"], "Over": ["~"], "With": ["Deba"], "Without": ["~"], "Before": ["Ka"], "After": ["Okue gbe rha"], "Because": ["Ramude"], "And": ["Bi"], "Or": ["La"], "But": ["Sokpan"], "If": ["Kha"], "Then": ["~"] },
-                clothing: { "Camisa": ["Shirt"], "Pantalones": ["Pants"], "Zapatos": ["Shoes"] },
+                clothing: {  },
                 weather: { "Lluvia": ["Rain"], "Nieve": ["Snow"], "Viento": ["Wind"] },
                 body: { "Head": ["Uhonmon"], "Hair": ["Eto"], "Face": ["Elolo"], "Eye": ["Elo"], "Hair": ["Eto"], "Nose": ["Ihue"], "Mouth": ["Unun"], "Hand": ["Obo"], "Foot": ["Oe"], "Leg": ["Oe"], "Armpit": ["Elihele"], "butt": ["uwedin"], "cheek": ["iro"], "Elbow": ["Egogo obor"], "eyelashes": ["ihuenlo"], "Finger": ["Ikpianb?"], "Finger Nail": ["ihieonbo"], "Finger Nails": ["Ehienlen"], "Knee": ["ugogo"], "Neck": ["Uru"], "Shoulder": ["ijianb?"], "Stomach": ["?k?"], "Tooth": ["akon"], "Toe": ["ikpianw?"], "Waist": ["?kun"], "Wrist": ["Akhu"] },
-                school1: { "Home": ["Uwa"], "School": ["Uwa ebe"], "Work": ["Iwenna"], "Office": ["Ioffice"], "Store": ["Eki"], "Restaurant": ["Irestaurant"], "Market": ["Eki"], "Hospital": ["Uwa ukhumun"], "Bank": ["Aza"], "Airport": ["~"] }
-                }; // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< INSERT YOUR SEED HER
+                school1: { "Oria yeen ebae wowo": ["Somebody cook food please."], "Men ha so ilolo bhi otue Elena": ["I will sing a song in Church today"], "Men tie Esan": ["I read Esan"], "Ma ha le ebae": ["We will eat food"], "O ha yo otue": ["She will go to Church"], "Rie men akhian uwaebe": ["Take me to school"], "A Khian sa Amen": ["Go fetch water"], "Ebo Odo non": ["Ebo is a husband"], "Men wolo": ["I'm strong"], "Ekata meose ": ["Ekata is beautiful"], "Ẹdẹki": ["Market day"], "Ẹdẹ uzana": ["Sunday "], "Ẹdẹ izẹdẹ": ["Saturday "], "Uhuẹnlẹ": ["7th day time"], "Ẹdẹ ehan lẹ": ["6th day time "], "Ẹdẹ Isẹn lẹ": ["5th day time"], "Ẹdẹ enẹnlẹ": ["4th day time"], "Ẹdẹ ealẹ/ Iriakhọ": ["Day after tomorrow "], "Ewiẹ/Akhọ": ["Tomorrow "], "Ẹlẹna": ["Today"], "Nene men vade": ["my mother is coming"], "Elin men ole faith": ["my name is Faith"], "⁠Men bh se boo odo": ["I have not married"], "⁠Men ii gwe So ilolo": ["I can’t sing a song"], "Aba men tie onin ebe": ["my Father is reading the book"], "Ole da ghee onin igho": ["she saw the money"], "Vae ⁠bhi Otue men": ["come to my church"], "Mun re onin ebae": ["Bring the food"], "Men bha yo iwenna": [" I didn’t go to work"], "Men kpe Onin Okiye": [" I’m washing the spoon"], "Men mhon imonto no se ine men": [" I have my mothers car"], "We le ebae": [" Did you eat"], "Men khian eki": ["I'm going to thr store/market."], "Be uwe ude elena": [" What did you buy today"], "Uwe lu fo": [" Are you finished"], "Men nien ize": ["I cooked rice"], "Be uwe lu": [" What are you doing"], "Je uwe ye": [" Where are you"], "Be atie elin e": [" What is your name"], "⁠Ji mẹn akhian Eki nian": [" Let me go to the market now"], "Mun onin ebae ji aba mẹn": [" Take the food to my father"], "⁠Inẹ, Wowo rie ebae mẹn": [" Mom please give me food"], "⁠Mẹn khian iwenna nian": [" I am going to work now"], "⁠Mẹn ze Esan khere khere": [" I speak Esan a little"], "⁠Mẹn mon imonto no bi": [" I have a black car"], "⁠Uwe ba mon ebae bhi uwa?": ["Do you have food at home?"], "Mẹn da ghee Faith elena": [" I saw Faith today"], "Wowo, vae bhi uwa aba mẹn.🤝": [" Please come to my father house. "], "Ọle sa amẹn": ["He is fetching water."], "Mẹn họọ ikpọn": ["I'm washing clothes "], "Tie onin ebe": ["Read the book ."], "Mẹn ha yẹẹn Ebae Ẹlẹna": ["I will cook food today ."], "So ilolo": ["Sing a Song"], "Mẹn dẹ imọnto": ["I bought a car"], "Rie onin igho": ["Take the money"], "Mun onin ebe re": ["Bring the book"], "A Khian uwaebe mẹn": ["Go to my school "], "Vae bhi uwa mẹn": ["Come to my house"], "Sa": ["Fetch"], "Tie": ["Read"], "Nien": ["Cook"], "Họọ": ["Wash"], "So": ["Sing"], "Udẹ": ["Buy"], "Rie": ["Take"], "Mun re": ["Bring"], "khian/yo": ["Go"], "Come": ["Come"], "Mẹn ha dẹ ibata ewiẹ": ["I will buy shoes tomorrow"], "Aba wowo rie igho mẹn": ["Father, please give me money"], "Ọnin ukpeẸru meose": ["The cap is beautiful"], "Ma ghee ẹdudu": ["We are watching television"], "Rie Okiyẹ ji mẹn": ["Bring a spoon for me"], "Nẹnẹ mẹn wenna": ["My mother is working"], "Mẹn khian isi iwenna": ["I'm going to the office"], "Ji ma akhian ugbo": ["Let us go the farm"], "Mẹn da ghee Oria": ["I saw somebody"], "Mẹn ii mon imọnto": ["I don't have a car"], "ibata .": ["Shoes"], "igho": ["Money"], "Ukpẹru": ["Cap"], "Ẹkpẹti/ẹdudu": ["Telvision"], "Okiyẹ": ["Spoon"], "iwenna": ["Work"], "isi/iwenna": ["Office"], "Ugbo": ["Farm"], "Ọria": ["Person/Somebody"], "Imọnto": ["Car"] },
+                school2: { "When": ["Eghe"], "Tell me when you bought the clothes": ["Tama men eghe ni uwe de enin ikpon"], "Tell me when you bought the clothes": ["Taa maan men eghe ni uwe de enin ikpon"], "Where are you coming from": ["Je uwe na vade"], "Odion is not in my place": ["Odion ii ri bhi ise men"], "Odion is not in my place": ["Odion ii ri bhi no se men"], "Michael is a good person": ["Michael, Oria non meen non"], "Party": ["iluemin"], "Do not go to the party this evening": ["A ii yo iluemin  osemuan na"], "Bringing": ["Hee"], "Bring": ["Hee"], "Olumese our father, is bringing drinks for us": ["Olumese ni aba man, hee ayon ji man"], "Visiting": ["Do tue"], "Isi is visiting us today": ["Isi ha do tue man elena"], "Ekata is not coming home today": ["Ekata ii ri bhi uwa elena"], "Ebo will go to the market in ther aftenoon": ["Ebo ha yupo eki bhi osodanmen"], "Faith is cooking rice for my father": ["Faith yeen ize ni aba men"], "Who bought the car": ["Obho ude onin imonto"], "Who bought the car": ["Obho de onin imonto"], "Discuss": ["Niyen"], "We will discuss the book tomorrow": ["Man  ha niyen onin ebe elena"], "He is strong": ["Daniel ole wowo"], "He will by water tomorrow": ["Ole ha de amen akho"], "He will by water tomorrow": ["Ole ha de amen ewie"], "Drive": ["Heen"], "I will drive to church": ["Men ha heen imonto akhian otue"], "Everyday": ["Edede"], "I eat food everyday": ["Men le ebae edede"], "Please give me the money": ["Wowo rie men onin igho"], "Preach": ["Wa osun"], "You cannot preach here": ["Uwe ii sabo wa osun enan"], "Run": ["Rie une"], "Please run home": ["Wowo rie une akhian uwa"], "Gathering": ["Sikoko"], "He is gathering the money": ["Ole sikoko onin igho"], "Dance": ["Gwe gbe ikhen"], "I cant dance": ["Men bha gwe gbe ikhen"], "Cold": ["Fofo"], "Today is cold": ["Elena ole fofo"], "Hat": ["Ukperu"], "I am wearing a hat": ["Men yo ukperu"], "He bought clothes": ["Ole de ikpon"], "He bought clothes": ["Ole ude ikpon"], "I will right a book": ["Men ha gben ebe"], "This place is very tight": ["Enan wowo keke"], "Tight": ["Keke"], "Very": ["Woo"], "Here": ["Enan"], "This place": ["Enan"], "Help": ["Urekpa"], "Help me carry this money": ["Rekpa men ka igho onin"], "Help me carry this money": ["Urekpa men ka igho onin"], "The": ["Onin"], "I dont accept": ["Men bha ka"], "I will not accept": ["Men ii ka"], "Dont accept": ["Aii ki"], "Do not accept": ["Aii ki"], "Accept": ["Ka"], "Close your mouth": ["Koko unun ose"], "Close your mouth": ["Koko unun no se e"], "Your mouth": ["Unun ose"], "Your mouth": ["Unun no se e"], "Mouth": ["Unun"], "Close it": ["Koko Ole"], "Your back": ["ikike"], "Before": ["ikike"], "Behind": ["ikike"], "To be tight": ["Keke"], "Count": ["Ka"], "Agree": ["Ka"], "Shut": ["Koko"], "Close": ["Koko"], "Do not laugh at her": ["A ii je ole"], "Do not laugh at him": ["A ii je ole"], "Dont": ["A ii"], "Do not": ["A ii"], "Mock": ["Je"], "Laugh": ["Je"], "Do not send me": ["A ii jie men"], "Errand": ["Uhunmun"], "Message": ["Uhunmun"], "Who sent you the message": ["Obho je uwe uhunmun"], "Send": ["Je"], "Whom": ["Obho"], "Who": ["Obho"], "I am going to esan class": ["Men khian uwaebe esan"], "Which place": ["Je bho"], "Where": ["Je"], "Where are you going": ["Je uwe khian"], "My money": ["igho men"], "My bag": ["Ekpa men"], "I am washing my bag": ["Men kpe ekpa men"], "I am": ["Men"], "Bag": ["Ekpa"], "Dishes": ["Ikpamaku"], "I am washing dishes": ["Men kpe ikpamaku"], "I am washing dishes": ["Men gbe ikpamaku"], "He is packing clothes": ["Ole hee ikpon"], "I am packing things": ["Men hee emin"], "What are you doing": ["Be uwe lu"], "We are carrying chairs": ["Man hee aga"], "We are carrying things": ["Man hee emin"], "Carry": ["Hee"], "Pack": ["Hee"], "Reject": ["Hee"], "Please do not reject the money": ["Wowo a ii hee onin igho"], "Clothing": ["Ukpon"], "Clothes": ["ikpon"], "I wash clothes": ["Men gbe ikpon"], "I wash clothes": ["Men hoo ikpon"], "Dishes": ["kpe"], "Washing": ["Gbe"], "Washing": ["hoo"], "Go": ["Yo"], "Today": ["Elena"], "Work": ["iwenna"], "Will": ["Ha"], "He will go to work today": ["Ole ha ya iwenna elena"], "Ring a bell": ["Fi egogo"], "Bell": ["Egogo"], "Teacher": ["Omaanebe"], "Our teacher is ringing the bell": ["Omaanebe man, fi onin egogo"], "Dont": ["A ii"], "Here": ["Enan"], "This place": ["Enan"], "Argue": ["Gbugen"], "Don not argue in this place": ["A ii gbugen bhi enan"], "I will worship you": ["Men ha ga uwe"], "I will serve you": ["Men ha ga uwe"], "I worship God": ["Men ga Ose"], "Worship": ["Ga"], "Serve": ["Ga"], "Ready": ["Ga"], "Cooked": ["Ga"], "The food is cooked": ["Onin Ebae ga"], "Buy": ["Ude"], "Buy": ["De"], "Chair": ["Aga"], "Today": ["Elena"], "My mother bought a chair today": ["Ine men de aga elena"], "My mother bought a chair today": ["Ine men ude aga elena"], "He is agile": ["Ole fifi"], "It": ["Ole"], "Pluck": ["Fan"], "Dont": ["A ii"], "Do not": ["A ii"], "Do not pluck it": ["A ii fan ole"], "The food is cold": ["Onin ebae fofo"], "Chilled": ["Fofo"], "Cold": ["Fofo"], "The": ["Onin"], "The water is cold": ["Onin amen fofo"], "He saw a bird": ["Ole da ghee afianmen"], "He sees a bird": ["Ole da ghee afianmen"], "Bird": ["Afianmen"], "See": ["Da ghee"], "I saw a bird": ["Men da ghee afianmen"], "Water": ["Amen"], "I am drinking water": ["Men won amen"], "Drink (Water)": ["Won"], "Drink (Alcohol)": ["Da"], "Anyon udin": ["Palm Wine"], "Uwe ba da anyon udin": ["Do you drink alcohol"], "Da Ede uwe re vade": ["Are you coming to the river"], "Vade": ["Coming"], "Khian": ["Going"], "Ede": ["River"], "Ole khian ede": ["He is going to the river"], "Tie": ["Reading"], "Tie": ["Read"], "Men khian la meen eto": ["I am going to make hair"], "Eto": ["Hair"], "Gben": ["Cut"], "Men khian la gben eto": ["I am going to cut hair"], "Ebe": ["book"], "Men tie ebe": ["I am reading a book"], "ii": ["will not"], "ii": ["wont"], "E ii yo uwaebe elena": ["They won't go to school today"], "E ii yo uwaebe elena": ["They are not going to school today"] };
+                // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< INSERT YOUR SEED HER
 
             /* ---------- Data Versioning ---------- */
-            const DATA_VERSION = '2025-08-26-a';
+            // Change this string (any new value works) "The date or the letter b" when making changes to SEED that should overwrite user data"
+            const DATA_VERSION = '2025-08-26-c';
             const VERSION_KEY = 'lingo_words_version';
 
             /* ---------- Storage + migration from very old keys ----------- */
@@ -659,18 +669,18 @@
                 const res = lookupAny(q);
                 if (res.length) {
                     out.innerHTML = res.map(r => `
-          <div class="card">
-            <div><b>${escapeHtml(r.key)}</b> <span class="muted">(${r.cat})</span></div>
-            <div class="muted">= ${r.vals.map(m => escapeHtml(m)).join(", ")}</div>
-          </div>`).join("");
+              <div class="card">
+                <div><b>${escapeHtml(r.key)}</b> <span class="muted">(${r.cat})</span></div>
+                <div class="muted">= ${r.vals.map(m => escapeHtml(m)).join(", ")}</div>
+              </div>`).join("");
                 } else {
                     out.innerHTML = `
-          <div class="card">
-            <div class="big">"${escapeHtml(q)}" not found.</div>
-            <div class="flex" style="margin-top:8px">
-              <button id="addFromLookup" class="btn primary" type="button">Add this word</button>
-            </div>
-          </div>`;
+              <div class="card">
+                <div class="big">"${escapeHtml(q)}" not found.</div>
+                <div class="flex" style="margin-top:8px">
+                  <button id="addFromLookup" class="btn primary" type="button">Add this word</button>
+                </div>
+              </div>`;
                     $("#addFromLookup").onclick = () => openAddModal({ presetKey: q, presetMeanings: "" });
                 }
                 out.style.display = "block";
@@ -892,15 +902,15 @@
                 items.forEach(({ cat, k, v }) => {
                     const el = document.createElement("div"); el.className = "card";
                     el.innerHTML = `
-          <div class="flex">
-            <div class="big" style="font-weight:800">${escapeHtml(k)}</div>
-            <span class="pill">${cat}</span>
-            <div class="spacer"></div>
-            <button class="btn ghost editBtn" type="button">Edit</button>
-            <button class="btn ghost delBtn" type="button">Delete</button>
-          </div>
-          <div class="muted" style="margin-top:4px">${v.map(x => escapeHtml(x)).join(", ")}</div>
-        `;
+              <div class="flex">
+                <div class="big" style="font-weight:800">${escapeHtml(k)}</div>
+                <span class="pill">${cat}</span>
+                <div class="spacer"></div>
+                <button class="btn ghost editBtn" type="button">Edit</button>
+                <button class="btn ghost delBtn" type="button">Delete</button>
+              </div>
+              <div class="muted" style="margin-top:4px">${v.map(x => escapeHtml(x)).join(", ")}</div>
+            `;
                     el.querySelector(".editBtn").onclick = () => openAddModal({ cat, presetKey: k, presetMeanings: v.join(", ") });
                     el.querySelector(".delBtn").onclick = () => {
                         if (!confirm(`Delete "${k}" in ${cat}?`)) return;
@@ -918,11 +928,11 @@
                     const meanings = all[cat][key];
                     const row = document.createElement("div"); row.className = "reviewRow";
                     row.innerHTML = `
-          <div><b>${escapeHtml(key)}</b> <span class="muted">(${cat})</span> <span class="muted">= ${meanings.map(escapeHtml).join(", ")}</span></div>
-          <div class="rowC">
-            <button class="btn primary" type="button">Practice</button>
-            <button class="btn ghost" type="button">Remove</button>
-          </div>`;
+              <div><b>${escapeHtml(key)}</b> <span class="muted">(${cat})</span> <span class="muted">= ${meanings.map(escapeHtml).join(", ")}</span></div>
+              <div class="rowC">
+                <button class="btn primary" type="button">Practice</button>
+                <button class="btn ghost" type="button">Remove</button>
+              </div>`;
                     const [practiceBtn, removeBtn] = row.querySelectorAll("button");
                     practiceBtn.onclick = () => openReview(cat, key, meanings);
                     removeBtn.onclick = () => { MISSED.delete(`${cat}::${key}`); save(LS.missed, Array.from(MISSED)); renderReviewCard(); };
@@ -954,22 +964,22 @@
                 const { cat = CATS[0], presetKey = "", presetMeanings = "" } = opts;
                 const modal = document.createElement("div"); modal.className = "toast"; modal.style.maxWidth = "720px"; modal.style.width = "calc(100% - 32px)";
                 modal.innerHTML = `
-        <div class="big" style="font-weight:900;margin-bottom:8px">Add / Edit Word</div>
-        <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
-          <label>Category
-            <select id="mCat">${CATS.map(c => `<option value="${c}">${c}</option>`).join("")}</select>
-          </label>
-          <label>Word (key)
-            <input id="mKey" type="text" placeholder="e.g., Hola" />
-          </label>
-          <label style="grid-column:1 / -1">Meanings (comma separated)
-            <input id="mVals" type="text" placeholder="e.g., Hello, Hi" />
-          </label>
-        </div>
-        <div class="flex" style="margin-top:8px">
-          <button id="mSave" class="btn primary" type="button">Save</button>
-          <button id="mCancel" class="btn" type="button">Cancel</button>
-        </div>`;
+            <div class="big" style="font-weight:900;margin-bottom:8px">Add / Edit Word</div>
+            <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
+              <label>Category
+                <select id="mCat">${CATS.map(c => `<option value="${c}">${c}</option>`).join("")}</select>
+              </label>
+              <label>Word (key)
+                <input id="mKey" type="text" placeholder="e.g., Hola" />
+              </label>
+              <label style="grid-column:1 / -1">Meanings (comma separated)
+                <input id="mVals" type="text" placeholder="e.g., Hello, Hi" />
+              </label>
+            </div>
+            <div class="flex" style="margin-top:8px">
+              <button id="mSave" class="btn primary" type="button">Save</button>
+              <button id="mCancel" class="btn" type="button">Cancel</button>
+            </div>`;
                 document.body.appendChild(modal);
                 $("#mCat", modal).value = cat; $("#mKey", modal).value = presetKey; $("#mVals", modal).value = presetMeanings;
                 $("#mCancel", modal).onclick = () => modal.remove();
